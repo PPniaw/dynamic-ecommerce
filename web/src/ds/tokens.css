@@ -1,0 +1,234 @@
+/* Design tokens.
+ *
+ * Colours are CSS variables set by <ThemeScope>/<Surface> (derive.ts). They are
+ * registered with @property so that when the LLM switches palette the whole
+ * page cross-fades instead of snapping.
+ *
+ * Shape, density, type and motion are driven by data attributes on the theme
+ * root — one attribute per LLM option, one variable set per value.
+ */
+@import "tailwindcss";
+
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/noto-sans-tc";
+@import "@fontsource-variable/noto-serif-tc";
+@import "@fontsource-variable/fraunces";
+/* CJK fonts: import the weight files (400.css / 700.css), which carry the full
+   character set split into unicode-range chunks — the browser only downloads
+   the chunks a page uses. The `chinese-traditional-*.css` files are a single
+   small subset and silently fall back for most characters. */
+@import "@fontsource/huninn/400.css";
+@import "@fontsource/lxgw-wenkai-tc/400.css";
+@import "@fontsource/lxgw-wenkai-tc/700.css";
+
+/* ---- colour roles -------------------------------------------------------- */
+
+@property --bg-base { syntax: "<color>"; inherits: true; initial-value: #fafaf9; }
+@property --bg-subtle { syntax: "<color>"; inherits: true; initial-value: #f1f0ee; }
+@property --bg-component { syntax: "<color>"; inherits: true; initial-value: #eeeeec; }
+@property --fg { syntax: "<color>"; inherits: true; initial-value: #1c1917; }
+@property --fg-subtle { syntax: "<color>"; inherits: true; initial-value: #57534e; }
+@property --fg-muted { syntax: "<color>"; inherits: true; initial-value: #78716c; }
+@property --line { syntax: "<color>"; inherits: true; initial-value: #e7e5e4; }
+@property --line-strong { syntax: "<color>"; inherits: true; initial-value: #c9c6c3; }
+@property --accent { syntax: "<color>"; inherits: true; initial-value: #1d4ed8; }
+@property --accent-hover { syntax: "<color>"; inherits: true; initial-value: #1e40af; }
+@property --on-accent { syntax: "<color>"; inherits: true; initial-value: #ffffff; }
+@property --primary { syntax: "<color>"; inherits: true; initial-value: #1c1917; }
+@property --primary-hover { syntax: "<color>"; inherits: true; initial-value: #3a3633; }
+@property --on-primary { syntax: "<color>"; inherits: true; initial-value: #fafaf9; }
+@property --success { syntax: "<color>"; inherits: true; initial-value: #15803d; }
+@property --warning { syntax: "<color>"; inherits: true; initial-value: #c2410c; }
+@property --danger { syntax: "<color>"; inherits: true; initial-value: #be123c; }
+
+@theme inline {
+  --color-base: var(--bg-base);
+  --color-subtle: var(--bg-subtle);
+  --color-component: var(--bg-component);
+  --color-fg: var(--fg);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-fg-muted: var(--fg-muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-on-accent: var(--on-accent);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-on-primary: var(--on-primary);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  --font-sans: var(--font-body);
+  --font-heading: var(--font-head);
+  --font-accent: var(--font-acc);
+
+  --radius-card: var(--r-card);
+  --radius-control: var(--r-control);
+  --radius-badge: var(--r-badge);
+  --radius-media: var(--r-media);
+
+  --shadow-card: var(--sh-card);
+  --shadow-card-hover: var(--sh-card-hover);
+  --shadow-flyout: 0 0 0 1px rgb(0 0 0 / 0.06), 0 4px 8px rgb(0 0 0 / 0.08), 0 12px 24px rgb(0 0 0 / 0.08);
+
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out-soft: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.theme-root,
+.surface {
+  /* Palette switches cross-fade. 300ms reads as "the store changed its
+     outfit", not as a flash. */
+  transition:
+    --bg-base 300ms, --bg-subtle 300ms, --bg-component 300ms, --fg 300ms, --fg-subtle 300ms,
+    --fg-muted 300ms, --line 300ms, --line-strong 300ms, --accent 300ms, --on-accent 300ms,
+    --primary 300ms, --on-primary 300ms;
+  color-scheme: light;
+}
+.theme-root[data-scheme="dark"] { color-scheme: dark; }
+
+/* ---- fonts --------------------------------------------------------------- */
+
+.theme-root {
+  --cjk-sans: "Noto Sans TC Variable", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --cjk-serif: "Noto Serif TC Variable", "Songti TC", serif;
+}
+.theme-root[data-fonts="modern"] {
+  --font-body: "Geist Variable", var(--cjk-sans);
+  --font-head: "Geist Variable", var(--cjk-sans);
+  --font-acc: "Geist Variable", var(--cjk-sans);
+  --head-weight: 600;
+  --head-tracking: -0.02em;
+}
+.theme-root[data-fonts="editorial"] {
+  --font-body: "Geist Variable", var(--cjk-sans);
+  --font-head: "Fraunces Variable", var(--cjk-serif);
+  --font-acc: "Fraunces Variable", var(--cjk-serif);
+  --head-weight: 500;
+  --head-tracking: -0.01em;
+}
+.theme-root[data-fonts="friendly"] {
+  --font-body: var(--cjk-sans);
+  --font-head: "Huninn", var(--cjk-sans);
+  --font-acc: "Huninn", var(--cjk-sans);
+  --head-weight: 400;
+  --head-tracking: 0;
+}
+.theme-root[data-fonts="literary"] {
+  --font-body: var(--cjk-sans);
+  --font-head: "LXGW WenKai TC", var(--cjk-serif);
+  --font-acc: "LXGW WenKai TC", var(--cjk-serif);
+  --head-weight: 700;
+  --head-tracking: 0.02em;
+}
+
+/* ---- type scale ----------------------------------------------------------
+ * Body sizes follow Medusa's named scale. Headings are fluid (Horizon): they
+ * shrink with the viewport but never below the next level down.
+ */
+.theme-root[data-type="compact"] { --ts: 0.86; }
+.theme-root[data-type="normal"] { --ts: 1; }
+.theme-root[data-type="display"] { --ts: 1.22; }
+
+@utility txt-xsmall { font-size: 12px; line-height: 18px; }
+@utility txt-small { font-size: 13px; line-height: 20px; }
+@utility txt-medium { font-size: 14px; line-height: 22px; }
+@utility txt-large { font-size: 16px; line-height: 26px; }
+@utility txt-xlarge { font-size: 18px; line-height: 28px; }
+
+@utility heading {
+  font-family: var(--font-head);
+  font-weight: var(--head-weight);
+  letter-spacing: var(--head-tracking);
+  text-wrap: balance;
+}
+@utility type-display { font-size: clamp(calc(var(--ts) * 44px), calc(var(--ts) * 6vw), calc(var(--ts) * 72px)); line-height: 1.05; }
+@utility type-h1 { font-size: clamp(calc(var(--ts) * 32px), calc(var(--ts) * 4.4vw), calc(var(--ts) * 48px)); line-height: 1.1; }
+@utility type-h2 { font-size: clamp(calc(var(--ts) * 24px), calc(var(--ts) * 3vw), calc(var(--ts) * 32px)); line-height: 1.2; }
+@utility type-h3 { font-size: calc(var(--ts) * 20px); line-height: 1.3; }
+@utility type-h4 { font-size: calc(var(--ts) * 16px); line-height: 1.4; }
+@utility eyebrow { font-size: 12px; line-height: 16px; letter-spacing: 0.12em; text-transform: uppercase; font-weight: 500; }
+
+.theme-root[data-heading-case="uppercase"] :where(.heading) {
+  text-transform: uppercase;
+  letter-spacing: calc(var(--head-tracking) + 0.04em);
+}
+
+/* ---- shape --------------------------------------------------------------- */
+
+.theme-root[data-radius="sharp"] { --r-card: 0px; --r-media: 0px; --r-control: 0px; --r-badge: 2px; }
+.theme-root[data-radius="soft"] { --r-card: 6px; --r-media: 4px; --r-control: 6px; --r-badge: 4px; }
+.theme-root[data-radius="round"] { --r-card: 14px; --r-media: 10px; --r-control: 10px; --r-badge: 8px; }
+.theme-root[data-radius="pill"] { --r-card: 20px; --r-media: 16px; --r-control: 9999px; --r-badge: 9999px; }
+
+.theme-root[data-elevation="flat"] { --sh-card: none; --sh-card-hover: none; }
+.theme-root[data-elevation="soft"] {
+  /* Medusa's elevation pair: the first layer is the border, drawn as a ring. */
+  --sh-card: 0 0 0 1px rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.08), 0 2px 4px rgb(0 0 0 / 0.04);
+  --sh-card-hover: 0 0 0 1px rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.08), 0 6px 16px rgb(0 0 0 / 0.1);
+}
+
+/* ---- density & width ----------------------------------------------------- */
+
+.theme-root[data-density="tight"] { --gutter: 12px; --card-pad: 10px; --section-gap: 48px; --stack: 6px; }
+.theme-root[data-density="normal"] { --gutter: 20px; --card-pad: 14px; --section-gap: 80px; --stack: 10px; }
+.theme-root[data-density="airy"] { --gutter: 32px; --card-pad: 20px; --section-gap: 128px; --stack: 14px; }
+
+.theme-root[data-width="narrow"] { --page-width: 72rem; }
+.theme-root[data-width="normal"] { --page-width: 90rem; }
+.theme-root[data-width="wide"] { --page-width: 120rem; }
+
+@utility page { width: 100%; max-width: var(--page-width); margin-inline: auto; padding-inline: 16px; }
+@media (min-width: 750px) { .page { padding-inline: 40px; } }
+
+/* ---- card hover ----------------------------------------------------------
+ * Only on devices with a real hover and when motion is welcome (Horizon).
+ */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .card-hover { transition: transform 200ms var(--ease-out-soft), box-shadow 200ms; }
+  .card-hover .card-img { transition: transform 400ms var(--ease-out-soft), opacity 250ms; }
+  [data-hover="lift"] .card-hover:hover { transform: translateY(-4px); box-shadow: var(--sh-card-hover); }
+  [data-hover="scale"] .card-hover:hover { transform: scale(1.03); }
+  [data-hover="zoom"] .card-hover:hover .card-img { transform: scale(1.045); }
+}
+
+/* ---- motion -------------------------------------------------------------- */
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rise-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes blink { 0% { opacity: 0.2; } 20% { opacity: 1; } 100% { opacity: 0.2; } }
+@keyframes shimmer { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+@keyframes flash-down { 0% { background: color-mix(in oklab, var(--success) 28%, transparent); } 100% { background: transparent; } }
+@keyframes flash-up { 0% { background: color-mix(in oklab, var(--danger) 24%, transparent); } 100% { background: transparent; } }
+@keyframes pulse-once { 0% { transform: scale(1); } 40% { transform: scale(1.25); } 100% { transform: scale(1); } }
+
+@theme {
+  --animate-fade-in: fade-in 300ms ease-out both;
+  --animate-rise-in: rise-in 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-marquee: marquee 40s linear infinite;
+  --animate-blink: blink 1.4s both infinite;
+  --animate-flash-down: flash-down 900ms ease-out;
+  --animate-flash-up: flash-up 900ms ease-out;
+  --animate-pulse-once: pulse-once 400ms var(--ease-bounce);
+}
+
+/* Money being recomputed: a light passes over the digits instead of a spinner. */
+@utility shimmer {
+  color: transparent;
+  background: linear-gradient(90deg, var(--fg-muted) 40%, var(--fg) 50%, var(--fg-muted) 60%) 0 0 / 200% 100%;
+  background-clip: text;
+  animation: shimmer 1.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; }
+}
+
+/* Visible, consistent focus everywhere (Vercel sets this globally too). */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

@@ -1,6 +1,7 @@
 # 設計規格 v0(畫面動工之前)
 
-> 狀態:**待確認**。第 9 節的問題有答案之前不寫畫面。
+> 狀態:第 9 節已決定;第 8 節 1–4 步(token、基本元件、商品卡、`/lab`)已完成,**等設計驗收**。
+> 驗收頁:`npm run dev:web` 之後開 http://localhost:5173/lab.html
 > 目前 `web/` 裡的 Mantine 版是驗證「LLM 決策 → 即時重排」的管線用的,不是設計。
 
 ## 0. 這份文件在解什麼
@@ -64,15 +65,23 @@ LLM **永遠不給 hex**。它選一組 palette preset,再替每個 section 選�
 - **語意色固定、不給 LLM 改**:錯誤、成功、有貨 / 少量 / 缺貨、降價、漲價。
 - Vercel 把 `blue-600` 寫死在約 10 處 —— **移植時全部換成 `--accent`**。
 
-palette preset(初版 6 組,各有 light + dark):
-`mono`(Vercel 式黑白灰 + 單一強調色)、`warm`(米白 + 赤陶)、`fresh`(白 + 綠)、
-`playful`(粉 + 紫)、`night`(深底 + 螢光)、`earth`(大地色)。
+palette preset(6 組,各有 light + dark,定義在 `web/src/ds/theme/palettes.ts`):
+`ink` 墨(黑白灰 + 藍)、`sand` 砂(米白 + 赤陶)、`sage` 苔(鼠尾草綠)、
+`blush` 胭(粉 + 梅)、`night` 夜(炭 + 琥珀)、`oat` 穀(燕麥 + 橄欖)。
+
+**對比是程式保證的**:`derive.ts` 算出每個角色色之後,低於門檻的會被往黑或白推到及格為止
+(文字 ≥ 4.5、強調色當細線 ≥ 3)。`npm run check:contrast` 會檢查 6 組 × 亮暗 × 4 種底色
+的全部組合,改 palette 之後要跑。
 
 ### 3.2 字體
 
 - **四個角色**:body / subheading / heading / accent(Horizon)。
-- **LLM 選一組字體搭配**:`modern`(Geist / Noto Sans TC)、`editorial`(serif 標題 + sans 內文)、
-  `friendly`(圓體)、`technical`(mono 當 accent)。中文字型一律要配好,不能只配西文。
+- **LLM 選一組字體搭配**(全部用 `@fontsource` 打包,不靠 CDN):
+  `modern`(Geist + 思源黑體)、`editorial`(Fraunces + 思源宋體 標題)、
+  `friendly`(粉圓 標題)、`literary`(霞鶩文楷 標題)。內文一律思源黑體。
+  原本的 `technical` 換成 `literary` —— 選物店用得到手寫感,用不到等寬字。
+- **中文字型要 import 字重檔(`400.css`),不是 `chinese-traditional-400.css`**:
+  後者只有一小段字,其餘字會靜靜地退回預設字體。
 - **字級**:沿用 Medusa 的具名字級(`txt-small / txt-medium / txt-large…`、`-plus` = 500)。
   標題用 Horizon 的流體縮放:≥48px 的字級會隨視窗縮小,但**永遠不小於下一級**。
 - **LLM 可調**:`headingCase: none | uppercase`、`scale: compact | normal | display`。
@@ -251,7 +260,16 @@ Decision = {
 7. 頁面(首頁 → 商品頁 → 購物車 → 分類 → 結帳)
 8. 轉場與即時更新
 
-## 9. 開工前需要你決定的事
+## 9. 已決定(2026-09-24)
+
+- UI 庫:**換成 Tailwind 4 + Headless UI**。舊的 Mantine 版暫時留在 `index.html`,
+  新設計系統在 `web/src/ds/`,由 `lab.html` 驗收;頁面移植(第 7 步)時再拆掉 Mantine
+- 商品圖:**免費圖庫(Unsplash)**。id 是憑記憶挑的,建置環境連不到 Unsplash 無法驗證 ——
+  `/lab` 的「圖片」區會列出實際載入失敗的;失敗時卡片自動換成文字底圖
+- 品牌:**生活選物店**。目錄改成 6 類 24 件(`shared/catalog.ts`):
+  餐桌器皿、咖啡與茶、香氛保養、文具紙品、居家擺設、隨身日常
+
+### 原本的問題(留作紀錄)
 
 1. **換掉 Mantine,改用 Tailwind 4 + Headless UI?**(建議:是,理由見第 2 節)
 2. **商品圖片從哪來?** 現在是 emoji,撐不起任何電商設計。
