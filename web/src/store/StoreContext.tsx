@@ -21,10 +21,17 @@ const writeUser = (id: string) => { try { localStorage.setItem(USER_KEY, id); } 
 const IMMEDIATE = new Set(["open", "prefs"]);
 
 export function withTransition(update: () => void) {
-  const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => { skipTransition?: () => void } };
   const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  if (doc.startViewTransition && !reduce) doc.startViewTransition(() => flushSync(update));
-  else update();
+  if (!doc.startViewTransition || reduce) { update(); return; }
+  // The browser may hold the update callback until it can capture the old
+  // frame — seen stalling to its 4s timeout. The store must never wait on an
+  // animation: if the callback hasn't run within 300ms, skip the transition
+  // and apply the change directly (the guard makes the late callback a no-op).
+  let done = false;
+  const run = () => { if (!done) { done = true; flushSync(update); } };
+  const vt = doc.startViewTransition(run);
+  setTimeout(() => { if (!done) { vt.skipTransition?.(); run(); } }, 300);
 }
 
 interface Store {
