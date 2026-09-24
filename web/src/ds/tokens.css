@@ -9,18 +9,6 @@
  */
 @import "tailwindcss";
 
-@import "@fontsource-variable/geist";
-@import "@fontsource-variable/noto-sans-tc";
-@import "@fontsource-variable/noto-serif-tc";
-@import "@fontsource-variable/fraunces";
-/* CJK fonts: import the weight files (400.css / 700.css), which carry the full
-   character set split into unicode-range chunks — the browser only downloads
-   the chunks a page uses. The `chinese-traditional-*.css` files are a single
-   small subset and silently fall back for most characters. */
-@import "@fontsource/huninn/400.css";
-@import "@fontsource/lxgw-wenkai-tc/400.css";
-@import "@fontsource/lxgw-wenkai-tc/700.css";
-
 /* ---- colour roles -------------------------------------------------------- */
 
 @property --bg-base { syntax: "<color>"; inherits: true; initial-value: #fafaf9; }
@@ -92,20 +80,20 @@
 /* ---- fonts --------------------------------------------------------------- */
 
 .theme-root {
-  --cjk-sans: "Noto Sans TC Variable", "PingFang TC", "Microsoft JhengHei", sans-serif;
-  --cjk-serif: "Noto Serif TC Variable", "Songti TC", serif;
+  --cjk-sans: "Noto Sans TC Variable", "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+  --cjk-serif: "Noto Serif TC Variable", "Noto Serif TC", "Songti TC", serif;
 }
 .theme-root[data-fonts="modern"] {
-  --font-body: "Geist Variable", var(--cjk-sans);
-  --font-head: "Geist Variable", var(--cjk-sans);
-  --font-acc: "Geist Variable", var(--cjk-sans);
+  --font-body: "Geist Variable", "Geist", var(--cjk-sans);
+  --font-head: "Geist Variable", "Geist", var(--cjk-sans);
+  --font-acc: "Geist Variable", "Geist", var(--cjk-sans);
   --head-weight: 600;
   --head-tracking: -0.02em;
 }
 .theme-root[data-fonts="editorial"] {
-  --font-body: "Geist Variable", var(--cjk-sans);
-  --font-head: "Fraunces Variable", var(--cjk-serif);
-  --font-acc: "Fraunces Variable", var(--cjk-serif);
+  --font-body: "Geist Variable", "Geist", var(--cjk-sans);
+  --font-head: "Fraunces Variable", "Fraunces", var(--cjk-serif);
+  --font-acc: "Fraunces Variable", "Fraunces", var(--cjk-serif);
   --head-weight: 500;
   --head-tracking: -0.01em;
 }

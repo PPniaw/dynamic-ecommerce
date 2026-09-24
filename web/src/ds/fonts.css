@@ -1,0 +1,14 @@
+/* Bundled fonts (local dev / production). The artifact preview swaps this
+   file for a Google Fonts <link>, because its CSP only allows that host. */
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/noto-sans-tc";
+@import "@fontsource-variable/noto-serif-tc";
+@import "@fontsource-variable/fraunces";
+/* CJK fonts: import the weight files (400.css / 700.css), which carry the full
+   character set split into unicode-range chunks — the browser only downloads
+   the chunks a page uses. The `chinese-traditional-*.css` files are a single
+   small subset and silently fall back for most characters. */
+@import "@fontsource/huninn/400.css";
+@import "@fontsource/lxgw-wenkai-tc/400.css";
+@import "@fontsource/lxgw-wenkai-tc/700.css";
+

@@ -17,6 +17,10 @@ import { Stock } from "../ds/ui/Stock";
 import { Segmented, Toggle } from "./Controls";
 
 const KEY = "llm-shop:lab";
+// The published preview can't load external images (its CSP blocks them), so
+// every card shows the typographic fallback there. Say so instead of letting it
+// look like a bug.
+const PREVIEW = import.meta.env.VITE_PREVIEW === "1";
 const load = (): { theme: ThemeOptions; card: CardOptions } => {
   try {
     const v = JSON.parse(localStorage.getItem(KEY) ?? "null");
@@ -61,6 +65,8 @@ const NAV = [
 export function Lab() {
   const [{ theme, card }, setState] = useState(load);
   const [live, setLive] = useState(false);
+  // On phones the controls would fill the first screen; keep them folded.
+  const [controlsOpen, setControlsOpen] = useState(false);
   const [added, setAdded] = useState(0);
   const products = useLiveMarket(live);
   const imageStatus = useRef(new Map<string, ImageStatus>());
@@ -86,7 +92,16 @@ export function Lab() {
               <p className="eyebrow text-fg-muted">llm-shop</p>
               <h1 className="heading type-h3 mt-1">設計實驗室</h1>
               <p className="mt-1 txt-small text-fg-muted">LLM 能選的每一個選項都在這裡。這裡看起來不對,就不進商店。</p>
+              {PREVIEW && (
+                <p className="mt-3 rounded-card bg-component p-3 txt-xsmall text-fg-subtle">
+                  預覽版:這個網頁不能載入外部圖片,所以商品卡都是文字底圖。真的商品照片要在本機跑 <code>npm run dev:web</code> 才看得到。
+                </p>
+              )}
+              <Button variant="secondary" size="sm" className="mt-3 lg:hidden" aria-expanded={controlsOpen} onClick={() => setControlsOpen((o) => !o)}>
+                {controlsOpen ? "收起選項" : "調整選項"}
+              </Button>
             </div>
+            <div className={cn("flex-col gap-5 lg:flex", controlsOpen ? "flex" : "hidden")}>
             <Segmented label="配色 palette" value={theme.palette} onChange={(v) => setTheme("palette", v)}
               options={(Object.keys(PALETTES) as PaletteName[]).map((k) => ({ value: k, label: PALETTES[k].label.split(" · ")[0] }))} />
             <Segmented label="明暗 scheme" value={theme.scheme} onChange={(v) => setTheme("scheme", v)} options={[{ value: "light", label: "亮" }, { value: "dark", label: "暗" }]} />
@@ -108,6 +123,7 @@ export function Lab() {
             <hr className="border-line" />
             <Toggle label="模擬即時市場(價格 / 庫存跳動)" value={live} onChange={setLive} />
             <Button variant="ghost" size="sm" onClick={() => setState({ theme: DEFAULT_THEME, card: DEFAULT_CARD })}>重設</Button>
+            </div>
           </div>
         </aside>
 
@@ -249,7 +265,7 @@ export function Lab() {
               </div>
             </Block>
 
-            <Block id="images" title="圖片" note="圖片 id 是憑記憶挑的,建置環境連不到 Unsplash,無法事先驗證。這裡列出實際載入結果;失敗的會自動換成文字底圖。">
+            <Block id="images" title="圖片" note={PREVIEW ? "預覽版不能載入外部圖片,這裡會全部顯示失敗。要檢查哪些 Unsplash 圖片有效,請在本機跑。" : "圖片 id 是憑記憶挑的,建置環境連不到 Unsplash,無法事先驗證。這裡列出實際載入結果;失敗的會自動換成文字底圖。"}>
               <ImageHealth status={imageStatus.current} />
             </Block>
           </div>
