@@ -278,3 +278,24 @@ Decision = {
    - (c)你提供真的商品資料
 3. **品牌感**:這家店是賣什麼的?現在的 36 件商品跨 6 個分類,像百貨。
    如果收斂成一個主題(例如生活選物店),palette 和字體 preset 可以做得更有個性。
+
+## 10. SEO(demo 不實作,但要有解)
+
+現在是純 Vite SPA,搜尋引擎只拿到空的 `<div id="root">`。上線時的解法:
+
+1. **分兩層**。可索引的是商品頁、分類頁、價格庫存 —— 對所有人都一樣,由伺服器渲染。
+   LLM 個人化的是首頁排序、推薦、主題 —— 不需要被索引。
+2. **爬蟲看到的是「新訪客版」**:規則引擎的預設決策。內容與真人新訪客一致,只是排序不同,
+   不構成 cloaking;爬蟲也不觸發 LLM 呼叫。
+3. **商品頁**:固定網址、`Product` + `Offer` JSON-LD(價格、`InStock`/`OutOfStock`)、
+   canonical、sitemap、OG。JSON-LD 的價格必須等於畫面上的價格,SSR 快取要短。
+4. **Core Web Vitals(CLS)**:LLM 決策完才重排會被算成版面位移。解法:回訪者用上一次的
+   決策做伺服器渲染;新決策在下一次換頁時生效,或只改動首屏以下 / 預留空間的區域。
+5. **遷移路徑**:Next.js App Router(Vercel Commerce、Medusa 原本就是 Next.js)。
+   設計系統是純 React + Tailwind,不用改。
+
+**demo 階段先守住三條,讓將來改 SSR 的成本最低:**
+
+- 商品與分類用**固定、可讀的網址**(`/p/<slug>-<id>`、`/c/<category>`),不用 hash 或 query 表示頁面
+- 元件在 render 階段**不碰 `window` / `localStorage`**(只在 effect 裡),將來可直接伺服器渲染
+- 版面重排遵守第 6 節:不打斷正在看的畫面,不造成自發位移
