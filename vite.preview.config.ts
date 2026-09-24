@@ -7,13 +7,13 @@ import { resolve } from "node:path";
 export default defineConfig({
   root: "web",
   plugins: [react(), tailwindcss()],
-  define: { "import.meta.env.VITE_PREVIEW": JSON.stringify("1") },
+  define: { "import.meta.env.VITE_PREVIEW": JSON.stringify("1"), "import.meta.env.VITE_STATIC": JSON.stringify("1") },
   build: {
     outDir: resolve(process.env.PREVIEW_OUT ?? "dist-preview"),
     emptyOutDir: true,
     assetsInlineLimit: Infinity,
     cssCodeSplit: false,
     modulePreload: false,
-    rollupOptions: { input: resolve("web/lab-preview.html"), output: { inlineDynamicImports: true } },
+    rollupOptions: { input: resolve(process.env.PREVIEW_ENTRY ?? "web/lab-preview.html"), output: { inlineDynamicImports: true } },
   },
 });

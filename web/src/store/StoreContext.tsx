@@ -11,7 +11,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { flushSync } from "react-dom";
 import type { Product } from "../../../shared/catalog";
 import type { ActivityItem, CartLine, DecisionEnvelope, ServerMessage, User, UserPrefs } from "../../../shared/decision";
-import { api } from "./api";
+import { api, openChannel } from "./backend";
 
 const USER_KEY = "llm-shop:user";
 const readUser = () => { try { return localStorage.getItem(USER_KEY) ?? undefined; } catch { return undefined; } };
@@ -86,17 +86,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!userId) return;
     writeUser(userId);
-    let ws: WebSocket;
-    let closed = false;
-    let timer: ReturnType<typeof setTimeout>;
-    let retry = 0;
-    const connect = () => {
-      const proto = location.protocol === "https:" ? "wss" : "ws";
-      ws = new WebSocket(`${proto}://${location.host}/ws?userId=${encodeURIComponent(userId)}`);
-      ws.onopen = () => { retry = 0; setConnected(true); };
-      ws.onclose = () => { setConnected(false); if (!closed) timer = setTimeout(connect, Math.min(8000, 500 * 2 ** retry++)); };
-      ws.onmessage = (ev) => {
-        const m = JSON.parse(ev.data) as ServerMessage;
+    return openChannel(userId, {
+      onOpen: () => setConnected(true),
+      onClose: () => setConnected(false),
+      onMessage: (m: ServerMessage) => {
         switch (m.type) {
           case "hello":
             setUser(m.user);
@@ -132,17 +125,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             setActivity((a) => [m.item, ...a].slice(0, 30));
             break;
         }
-      };
-    };
-    connect();
-    return () => { closed = true; clearTimeout(timer); ws?.close(); };
+      },
+    });
   }, [userId]);
 
+  // Read the waiting decision from a ref: applying it from inside a setState
+  // updater would update state mid-render when view transitions are missing.
+  const pendingRef = useRef<DecisionEnvelope>(undefined);
+  pendingRef.current = pending;
   const applyPending = useCallback(() => {
-    setPending((p) => {
-      if (p) withTransition(() => setEnvelope(p));
-      return undefined;
-    });
+    const p = pendingRef.current;
+    if (!p) return;
+    pendingRef.current = undefined;
+    setPending(undefined);
+    withTransition(() => setEnvelope(p));
   }, []);
 
   const store = useMemo<Store>(() => ({
