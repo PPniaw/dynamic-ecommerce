@@ -68,3 +68,14 @@ export function imageUrl(id: string, width: number, ratio: ImageRatio = "portrai
   const crop = detail ? "&crop=focalpoint&fp-x=.5&fp-y=.5&fp-z=1.7" : "&crop=entropy";
   return `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${width}&h=${h}&q=75${crop}`;
 }
+
+// A catalog product as it lives in the store: price and stock move in real
+// time; `compareAt` is set only while the price is below list price.
+export interface Product extends CatalogProduct {
+  sold: number;
+}
+
+// Readable, stable URLs (SEO rule: no hash or query routing for pages).
+export const productPath = (p: Pick<CatalogProduct, "id" | "name">) => `/p/${p.id}-${encodeURIComponent(p.name.replace(/\s+/g, "-"))}`;
+export const productIdFromSlug = (slug: string) => slug.split("-")[0];
+export const categoryPath = (c: ShopCategory) => `/c/${c}`;

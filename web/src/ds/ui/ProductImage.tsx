@@ -9,7 +9,7 @@ const ASPECT: Record<ImageRatio, string> = { portrait: "aspect-[4/5]", square: "
 
 export type ImageStatus = "loading" | "ok" | "error";
 
-export function ProductImage({ image, name, ratio, secondary, width = 640, eager, className, onStatus, quietFallback }: {
+export function ProductImage({ image, name, ratio, secondary, width = 640, eager, className, onStatus, quietFallback, detail }: {
   image: string;
   name: string;
   ratio: ImageRatio;
@@ -22,6 +22,8 @@ export function ProductImage({ image, name, ratio, secondary, width = 640, eager
   // The card already prints the name over the photo (overlay info): keep the
   // fallback tile plain instead of showing the name twice.
   quietFallback?: boolean;
+  // A tighter crop of the same photo (gallery close-ups).
+  detail?: boolean;
 }) {
   const [status, setStatus] = useState<ImageStatus>("loading");
   const set = (s: ImageStatus) => { setStatus(s); onStatus?.(s); };
@@ -35,8 +37,8 @@ export function ProductImage({ image, name, ratio, secondary, width = 640, eager
       ) : (
         <>
           <img
-            src={imageUrl(image, width, ratio)}
-            srcSet={`${imageUrl(image, Math.round(width / 2), ratio)} ${Math.round(width / 2)}w, ${imageUrl(image, width, ratio)} ${width}w`}
+            src={imageUrl(image, width, ratio, detail)}
+            srcSet={`${imageUrl(image, Math.round(width / 2), ratio, detail)} ${Math.round(width / 2)}w, ${imageUrl(image, width, ratio, detail)} ${width}w`}
             sizes="(min-width: 1024px) 25vw, 50vw"
             alt={name}
             loading={eager ? "eager" : "lazy"}

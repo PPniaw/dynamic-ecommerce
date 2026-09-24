@@ -1,27 +1,33 @@
 // SQLite via node's built-in `node:sqlite` — no native build step, one file on
-// disk (`data/shop.db`). Swap for Postgres later by replacing this module;
+// disk (`data/shop-v2.db`). Swap for Postgres later by replacing this module;
 // nothing else touches SQL.
+//
+// v2 lives in a new file on purpose: the v1 `data/shop.db` has a different
+// products table (emoji, base_price) and v1 prefs, and CREATE TABLE IF NOT
+// EXISTS would silently keep the old shape.
 import { DatabaseSync } from "node:sqlite";
 import { mkdirSync } from "node:fs";
-import type {
-  CartLine, Category, EventType, Product, User, UserPrefs,
-} from "../shared/decision.ts";
-import { SEED_PRODUCTS, SEED_USERS } from "./seed.ts";
+import type { CartLine, EventType, User, UserPrefs } from "../shared/decision.ts";
+import { CATALOG, type Product, type ShopCategory } from "../shared/catalog.ts";
+import { EMPTY_PERSONA } from "../shared/personas.ts";
+import { SEED_USERS } from "./seed.ts";
 
 mkdirSync("data", { recursive: true });
-export const db = new DatabaseSync(process.env.DB_PATH ?? "data/shop.db");
+export const db = new DatabaseSync(process.env.DB_PATH ?? "data/shop-v2.db");
 db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
 
 db.exec(`
 CREATE TABLE IF NOT EXISTS products (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  emoji TEXT NOT NULL,
+  maker TEXT NOT NULL,
   category TEXT NOT NULL,
   price INTEGER NOT NULL,
-  base_price INTEGER NOT NULL,
+  list_price INTEGER NOT NULL,
   stock INTEGER NOT NULL,
+  image TEXT NOT NULL,
   tags TEXT NOT NULL,
+  is_new INTEGER NOT NULL DEFAULT 0,
   sold INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS users (
@@ -73,10 +79,12 @@ CREATE TABLE IF NOT EXISTS decisions (
 const productCount = (db.prepare("SELECT COUNT(*) AS n FROM products").get() as { n: number }).n;
 if (productCount === 0) {
   const ins = db.prepare(
-    "INSERT INTO products (id,name,emoji,category,price,base_price,stock,tags) VALUES (?,?,?,?,?,?,?,?)",
+    "INSERT INTO products (id,name,maker,category,price,list_price,stock,image,tags,is_new) VALUES (?,?,?,?,?,?,?,?,?,?)",
   );
-  for (const p of SEED_PRODUCTS) {
-    ins.run(p.id, p.name, p.emoji, p.category, p.price, p.price, p.stock, JSON.stringify(p.tags));
+  // list_price is the reference every price move is measured against; a
+  // catalog `compareAt` means "already on sale at seed time".
+  for (const p of CATALOG) {
+    ins.run(p.id, p.name, p.maker, p.category, p.price, p.compareAt ?? p.price, p.stock, p.image, JSON.stringify(p.tags), p.isNew ? 1 : 0);
   }
   const insU = db.prepare("INSERT INTO users (id,name,prefs) VALUES (?,?,?)");
   for (const u of SEED_USERS) insU.run(u.id, u.name, JSON.stringify(u.prefs));
@@ -85,15 +93,25 @@ if (productCount === 0) {
 // ---- products --------------------------------------------------------------
 
 interface ProductRow {
-  id: string; name: string; emoji: string; category: string;
-  price: number; base_price: number; stock: number; tags: string; sold: number;
+  id: string; name: string; maker: string; category: string; price: number; list_price: number;
+  stock: number; image: string; tags: string; is_new: number; sold: number;
 }
 
+// The shared `Product` shape: `compareAt` exists only while the live price is
+// below list price, so "is it on sale" is `p.compareAt !== undefined` everywhere.
 const toProduct = (r: ProductRow): Product => ({
-  id: r.id, name: r.name, emoji: r.emoji, category: r.category as Category,
-  price: r.price, basePrice: r.base_price, stock: r.stock,
-  tags: JSON.parse(r.tags), sold: r.sold,
+  id: r.id, name: r.name, maker: r.maker, category: r.category as ShopCategory,
+  price: r.price, ...(r.price < r.list_price ? { compareAt: r.list_price } : {}),
+  stock: r.stock, image: r.image, tags: JSON.parse(r.tags),
+  ...(r.is_new ? { isNew: true } : {}), sold: r.sold,
 });
+
+// List price isn't part of the shared Product (it's implied by compareAt only
+// while discounted); the market simulator and the Claude prompt need it always.
+export function listPrices(): Map<string, number> {
+  return new Map((db.prepare("SELECT id, list_price FROM products").all() as unknown as { id: string; list_price: number }[])
+    .map((r) => [r.id, r.list_price]));
+}
 
 export function listProducts(): Product[] {
   return (db.prepare("SELECT * FROM products ORDER BY id").all() as unknown as ProductRow[]).map(toProduct);
@@ -114,16 +132,23 @@ export function updateProduct(id: string, patch: { price?: number; stock?: numbe
 
 // ---- users -----------------------------------------------------------------
 
-const DEFAULT_PREFS: UserPrefs = { style: "auto", budget: null, categories: [], need: "" };
+const DEFAULT_PREFS: UserPrefs = {
+  archetype: "auto", scheme: "auto", budget: null, categories: [], need: "", persona: EMPTY_PERSONA,
+};
+
+type UserRow = { id: string; name: string; prefs: string };
+const toUser = (r: UserRow): User => {
+  const p = JSON.parse(r.prefs) as Partial<UserPrefs>;
+  return { id: r.id, name: r.name, prefs: { ...DEFAULT_PREFS, ...p, persona: { ...EMPTY_PERSONA, ...p.persona } } };
+};
 
 export function listUsers(): User[] {
-  return (db.prepare("SELECT * FROM users ORDER BY rowid").all() as unknown as { id: string; name: string; prefs: string }[])
-    .map((r) => ({ id: r.id, name: r.name, prefs: { ...DEFAULT_PREFS, ...JSON.parse(r.prefs) } }));
+  return (db.prepare("SELECT * FROM users ORDER BY rowid").all() as unknown as UserRow[]).map(toUser);
 }
 
 export function getUser(id: string): User | undefined {
-  const r = db.prepare("SELECT * FROM users WHERE id = ?").get(id) as { id: string; name: string; prefs: string } | undefined;
-  return r && { id: r.id, name: r.name, prefs: { ...DEFAULT_PREFS, ...JSON.parse(r.prefs) } };
+  const r = db.prepare("SELECT * FROM users WHERE id = ?").get(id) as UserRow | undefined;
+  return r && toUser(r);
 }
 
 export function createUser(name: string): User {

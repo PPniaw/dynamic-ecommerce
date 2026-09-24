@@ -1,26 +1,29 @@
-# 即時商店(LLM 決策電商 demo)
+# 日常所 · 會依個性改變的電商 demo
 
-一個「商店會自己重新排版」的電商 demo:**LLM 只做決策,不寫文字**。
+一個「不同的人走進不同的店」的電商 demo:**LLM 只做決策,不寫文字**。
 
-每當顧客瀏覽、收藏、加購物車、結帳、改喜好,或市場上有商品售完 / 降價,
-後端就把「這位顧客的輪廓 + 即時商品目錄」交給 Claude,拿回一份**決策**:
+LLM 讀顧客的個性(MBTI、星座、個性標籤、興趣)、需求、瀏覽行為與即時庫存,
+從四種**結構完全不同**的店裡選一種,再決定這家店的每個細節:
 
-| 決策欄位   | 內容                                                      |
-| ---------- | --------------------------------------------------------- |
-| `theme`    | 主色、深淺色、圓角、密度、字體 → 整個 UI 的風格即時切換     |
-| `hero`     | 首頁主打哪一件,以及理由(降價 / 最後幾件 / 送禮…)        |
-| `sections` | 要出現哪些區塊、順序、每區用什麼版型(grid / carousel / list) |
-| `badges`   | 哪些商品掛「熱賣 / 降價 / 少量 / 推薦」                     |
-| `signals`  | 做這個決策的理由代碼(右側「決策引擎」面板會顯示)           |
+| 店型 | 適合 | 長什麼樣 |
+| --- | --- | --- |
+| **雜誌** editorial | 慢活、感性、愛讀故事的人 | 大圖跨頁、製作者故事、襯線大字、大量留白 |
+| **拼貼** collage | 好奇、衝動、愛冒險的人 | 歪斜的貼紙卡、跑馬燈、便當盒格線、圓體 |
+| **索引** index | 理性、比較規格的人 | 規格表、編號索引、銳角、高資訊密度 |
+| **特賣** deal | 務實、比價、趕時間的人 | 倒數計時、大價格、庫存條、密集格線 |
 
-全部是 enum 或商品 id,用 structured outputs 強制 schema。畫面上所有字都在
-`web/src/copy.ts`,模型碰不到 —— 所以它不會寫出錯的價格或不存在的承諾。
+店型之下,LLM 還決定:主題(配色、字體、圓角、密度)、標頭、首屏、區塊順序與版型、
+卡片樣式、分類頁與商品頁的版型、推薦徽章。全部是 enum 或商品 id,用 structured outputs
+強制 schema(`shared/decision.ts`)。畫面上所有字在 `web/src/store/copy.ts`,依店型換語氣。
+
+內建五位示範顧客:Ines(INFP · 雙魚)、Leo(ENFP · 射手)、Ada(INTJ · 摩羯)、
+Ken(ESTJ · 處女)、新訪客。左下角「你是誰?」可以切換,或自己描述個性,店會即時重排。
 
 ## 技術棧
 
-- **前端**:React 19 + Vite + **Mantine 9**(UI 庫,theme 由決策即時產生)
+- **前端**:React 19 + Vite + **Tailwind 4 + Headless UI**,自建設計系統(`web/src/ds/`,驗收頁 `/lab.html`)
 - **後端**:Node 22 + Express + WebSocket(`ws`)
-- **資料庫**:SQLite(Node 內建 `node:sqlite`,免編譯,檔案在 `data/shop.db`)
+- **資料庫**:SQLite(Node 內建 `node:sqlite`,免編譯,檔案在 `data/shop-v2.db`)
 - **決策**:Claude(`@anthropic-ai/sdk`),沒有 API key 時自動改用規則引擎,輸出格式相同
 
 ## 跑起來
@@ -44,25 +47,31 @@ API key 要從 Anthropic Console(https://console.anthropic.com → API Keys)建�
   跑的途中又有新動作,結束後只再跑一次。市場事件觸發的重新決策每人每 20 秒最多一次(控制成本)
 - **首屏不等 AI**:連上時先用規則引擎立刻出畫面,Claude 的決策回來後再替換
 
-## 用戶喜好與需求
+## 個性與需求
 
-右上「喜好」:風格(交給 AI / 極簡 / 繽紛 / 暗色)、分類、預算、以及一段自由文字的**需求**
-(例如「下個月要去合歡山露營」)。需求是**輸入**給模型的;輸出仍然只是 enum。
-下半部顯示從行為推算出的分類偏好(加權 + 10 分鐘半衰期)。
+左下角「你是誰?」:MBTI(四個維度各選一邊)、星座、個性標籤、興趣、常逛分類、預算、
+明暗,以及一段自由文字的**需求**。需求是**輸入**給模型的;輸出仍然只是 enum。
+面板會即時顯示四種店型的分數(`shared/archetypes.ts` 的 `scoreArchetypes`),看得到為什麼。
+沒有 API key 時規則引擎用這個分數選店型;有 key 時 Claude 綜合判斷。
 
-內建三個顧客:極簡上班族、週末山友、送禮苦手 —— 切換就能看到三種完全不同的商店。
+**版面什麼時候換**:你自己改資料或切換顧客 → 立刻換(有 view transition)。
+你瀏覽時觸發的重新決策 → **不會打斷正在看的這一頁**,換頁時才套用(右下角可以手動套用)。
 
 ## 檔案地圖
 
 ```
-shared/decision.ts        決策 schema(前後端共用,Zod)
-server/decision/claude.ts Claude 決策(structured outputs + server-side fallback)
-server/decision/rules.ts  規則引擎(無 key / 出錯 / 首屏)
-server/decision/index.ts  選引擎 + sanitize(過濾不存在或售完的商品 id)
-server/profile.ts         事件 → 偏好輪廓
-server/db.ts              SQLite schema 與所有 SQL
-server/index.ts           REST + WebSocket + 市場模擬 + 決策排程
-web/src/                  React + Mantine
+shared/decision.ts         決策 schema v2(前後端共用,Zod)
+shared/archetypes.ts       四種店型的預設 + 個性 → 店型的評分
+shared/personas.ts         MBTI / 星座 / 個性 / 興趣
+shared/catalog.ts          商品目錄(24 件、6 類)
+server/decision/claude.ts  Claude 決策(structured outputs + server-side fallback)
+server/decision/rules.ts   規則引擎(無 key / 出錯 / 首屏)
+server/decision/index.ts   選引擎 + sanitize
+server/index.ts            REST + WebSocket + 市場模擬 + 決策排程
+web/src/ds/                設計系統(token、元件、商品卡)
+web/src/store/             商店:標頭 / 首屏 / 區塊 / 卡片 / 頁面,各有四種店型的變體
+web/src/lab/               設計實驗室(/lab.html)
+docs/design-spec.md        設計規格
 ```
 
 ## 刻意的取捨

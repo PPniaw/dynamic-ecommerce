@@ -3,9 +3,11 @@ import { createServer } from "node:http";
 import { existsSync } from "node:fs";
 import { WebSocketServer, type WebSocket } from "ws";
 import type { ActivityItem, DecisionEnvelope, EventType, ServerMessage, UserPrefs } from "../shared/decision.ts";
-import { CATEGORIES } from "../shared/decision.ts";
+import { ARCHETYPES } from "../shared/decision.ts";
+import { SHOP_CATEGORIES } from "../shared/catalog.ts";
+import { INTERESTS, MBTI_TYPES, TRAITS, ZODIACS, type Persona } from "../shared/personas.ts";
 import {
-  checkout, CheckoutError, createUser, getCart, getProduct, getUser, listOrders,
+  checkout, CheckoutError, createUser, getCart, getProduct, getUser, listOrders, listPrices,
   listProducts, listUsers, logEvent, saveDecision, setCartQty, setPrefs, updateProduct,
 } from "./db.ts";
 import { decide, decideWithRules, sanitize, type DecisionInput } from "./decision/index.ts";
@@ -43,6 +45,7 @@ function buildInput(userId: string, trigger: string): DecisionInput | undefined 
   const products = listProducts();
   return {
     user, products, trigger,
+    listPrices: listPrices(),
     profile: buildProfile(userId, products),
     recentIds: recentProductIds(userId),
     cartIds: getCart(userId).map((l) => l.productId),
@@ -82,13 +85,16 @@ async function run(userId: string, trigger: string) {
 // ---- market simulator ------------------------------------------------------
 //
 // Stands in for "other shoppers" so the store is visibly alive: sales drain
-// stock, restocks refill it, flash prices come and go.
+// stock, restocks refill it, flash prices come and go. Prices always move
+// relative to list price, so a product is "on sale" (has compareAt) exactly
+// when a step below 1 is in effect.
 
 const PRICE_STEPS = [0.7, 0.8, 0.85, 0.9, 1, 1, 1.1];
 const pick = <T,>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)];
 
 function marketTick() {
   const products = listProducts();
+  const list = listPrices();
   const r = Math.random();
   let item: ActivityItem | undefined;
   if (r < 0.6) {
@@ -103,7 +109,7 @@ function marketTick() {
     item = { kind: "restock", productId: p.id, qty: 15, at: Date.now() };
   } else {
     const p = pick(products);
-    const to = Math.round((p.basePrice * pick(PRICE_STEPS)) / 10) * 10;
+    const to = Math.round((list.get(p.id)! * pick(PRICE_STEPS)) / 10) * 10;
     if (to === p.price) return;
     updateProduct(p.id, { price: to });
     item = { kind: to < p.price ? "price_drop" : "price_up", productId: p.id, from: p.price, to, at: Date.now() };
@@ -112,13 +118,14 @@ function marketTick() {
   toAll({ type: "products", products: [changed] });
   toAll({ type: "activity", item });
 
-  // Only re-decide for shoppers whose storefront this actually affects.
+  // Only re-decide for shoppers whose storefront this actually affects: a
+  // price drop counts once it's at least 10% under list.
   const material = item.kind === "sold_out" || item.kind === "restock"
-    || (item.kind === "price_drop" && item.to! <= changed.basePrice * 0.9);
+    || (item.kind === "price_drop" && item.to! <= list.get(changed.id)! * 0.9);
   if (!material) return;
   for (const userId of sockets.keys()) {
     const env = latest.get(userId);
-    const shown = env && (env.decision.hero.productId === item.productId
+    const shown = env && (env.decision.hero.productIds.includes(item.productId)
       || env.decision.sections.slice(0, 2).some((s) => s.productIds.includes(item.productId)));
     const s = sched.get(userId);
     const cooled = !s || Date.now() - s.lastMarketRun > MARKET_REDECIDE_MIN_MS;
@@ -142,19 +149,43 @@ app.post("/api/users", (req, res) => {
   res.json(createUser(name));
 });
 
+// Full UserPrefs v2 from an untrusted body. Every enum is checked against the
+// shared vocabularies; unknown values are dropped, not rejected, so an older
+// client can't wipe a field by sending something we don't know.
+const oneOf = <T extends string>(xs: readonly T[], v: unknown): T | null =>
+  typeof v === "string" && (xs as readonly string[]).includes(v) ? (v as T) : null;
+const someOf = <T extends string>(xs: readonly T[], v: unknown, max = xs.length): T[] =>
+  Array.isArray(v) ? [...new Set(v.map((x) => oneOf(xs, x)).filter((x): x is T => x !== null))].slice(0, max) : [];
+
+function parsePrefs(b: Record<string, unknown>): UserPrefs {
+  const p = (b.persona && typeof b.persona === "object" ? b.persona : {}) as Record<string, unknown>;
+  const persona: Persona = {
+    mbti: oneOf(MBTI_TYPES, p.mbti),
+    zodiac: oneOf(ZODIACS, p.zodiac),
+    traits: someOf(TRAITS, p.traits),
+    interests: someOf(INTERESTS, p.interests),
+  };
+  const budget = Number(b.budget);
+  return {
+    archetype: oneOf(["auto", ...ARCHETYPES] as const, b.archetype) ?? "auto",
+    scheme: oneOf(["auto", "light", "dark"] as const, b.scheme) ?? "auto",
+    budget: b.budget != null && Number.isFinite(budget) && budget > 0 ? Math.round(budget) : null,
+    categories: someOf(SHOP_CATEGORIES, b.categories),
+    need: String(b.need ?? "").slice(0, 200),
+    persona,
+  };
+}
+
 app.put("/api/users/:id/prefs", (req, res) => {
   const user = getUser(req.params.id);
   if (!user) { res.status(404).end(); return; }
-  const b = req.body ?? {};
-  const prefs: UserPrefs = {
-    style: ["auto", "minimal", "vivid", "dark"].includes(b.style) ? b.style : "auto",
-    budget: Number.isFinite(b.budget) && b.budget > 0 ? Math.round(b.budget) : null,
-    categories: Array.isArray(b.categories) ? b.categories.filter((c: string) => (CATEGORIES as readonly string[]).includes(c)) : [],
-    need: String(b.need ?? "").slice(0, 200),
-  };
+  const prefs = parsePrefs(req.body ?? {});
   setPrefs(user.id, prefs);
+  const updated = { ...user, prefs };
+  // Other tabs of the same shopper see the new persona / prefs right away.
+  toUser(user.id, { type: "user", user: updated });
   requestDecision(user.id, "prefs", 0);
-  res.json({ ...user, prefs });
+  res.json(updated);
 });
 
 app.get("/api/users/:id/profile", (req, res) => {
