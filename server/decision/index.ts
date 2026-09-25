@@ -90,7 +90,7 @@ export async function decide(input: DecisionInput): Promise<DecisionEnvelope> {
       const d = await decideWithJev(input);
       return { decision: sanitize(d, input.products), source: "jev", latencyMs: Date.now() - t0, at: Date.now(), trigger: input.trigger };
     } catch (err) {
-      if (err instanceof JevError && err.status === 401) console.error("[decide] jev auth failed — check TYPESAFE_API_KEY");
+      if (err instanceof JevError && (err.status === 401 || err.status === 403)) console.error("[decide] jev auth failed — check TYPESAFE_API_KEY");
       else if (err instanceof JevError && err.status === 429) console.warn("[decide] jev rate limited, using rules this round");
       else console.warn("[decide] jev failed:", (err as Error).message);
     }
