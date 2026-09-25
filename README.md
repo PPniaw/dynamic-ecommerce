@@ -28,6 +28,8 @@ Ken(ESTJ · 處女)、新訪客。左下角「你是誰?」可以切換,或自�
 
 ## 跑起來
 
+需要 Node 22.5+(`node:sqlite`)。有 nvm 的話先 `nvm use`。
+
 ```bash
 npm install
 cp .env.example .env        # 填 ANTHROPIC_API_KEY(可不填)
