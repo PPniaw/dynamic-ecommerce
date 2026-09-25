@@ -24,7 +24,7 @@ Ken(ESTJ · 處女)、新訪客。左下角「你是誰?」可以切換,或自�
 - **前端**:React 19 + Vite + **Tailwind 4 + Headless UI**,自建設計系統(`web/src/ds/`,驗收頁 `/lab.html`)
 - **後端**:Node 22 + Express + WebSocket(`ws`)
 - **資料庫**:SQLite(Node 內建 `node:sqlite`,免編譯,檔案在 `data/shop-v2.db`)
-- **決策**:Claude(`@anthropic-ai/sdk`),沒有 API key 時自動改用規則引擎,輸出格式相同
+- **決策**:jev(TypeSafe AI,直接打 HTTP API)或 Claude(`@anthropic-ai/sdk`),都沒有 key 時自動改用規則引擎,輸出格式相同
 
 ## 跑起來
 
@@ -32,12 +32,20 @@ Ken(ESTJ · 處女)、新訪客。左下角「你是誰?」可以切換,或自�
 
 ```bash
 npm install
-cp .env.example .env        # 填 ANTHROPIC_API_KEY(可不填)
+cp .env.example .env        # 填 TYPESAFE_API_KEY 或 ANTHROPIC_API_KEY(都可不填)
 export $(grep -v '^#' .env | xargs)
 npm run dev                 # http://localhost:5173
 ```
 
-API key 要從 Anthropic Console(https://console.anthropic.com → API Keys)建立。
+jev 的 key 從 TypeSafe AI 取得(文件:https://docs.typesafe.ai),Claude 的 key 從 Anthropic Console
+(https://console.anthropic.com → API Keys)建立。兩個都設時預設用 jev,可用 `SHOP_DECISION_ENGINE=jev|claude|rules` 指定。
+
+### jev 怎麼做決策
+
+jev 不產生 JSON,只回答「選擇題 / 是非題 / 評分題」並附機率。所以一次呼叫問它:
+店型(四選一)、亮色或暗色、首屏標語、是不是在找禮物,以及每件有庫存的商品「這位顧客會想要嗎」。
+規則引擎再用這些答案組出完整的決策(區塊、商品、數量),跟 Claude 一樣經過 sanitize。
+顧客自己指定的店型 / 深淺色、說出口的送禮需求,永遠優先於 jev 的判斷。
 
 ## 即時的部分
 
@@ -66,6 +74,7 @@ shared/decision.ts         決策 schema v2(前後端共用,Zod)
 shared/archetypes.ts       四種店型的預設 + 個性 → 店型的評分
 shared/personas.ts         MBTI / 星座 / 個性 / 興趣
 shared/catalog.ts          商品目錄(24 件、6 類)
+server/decision/jev.ts     jev 決策(回答題目 → 規則引擎組版面)
 server/decision/claude.ts  Claude 決策(structured outputs + server-side fallback)
 server/decision/rules.ts   規則引擎(無 key / 出錯 / 首屏)
 server/decision/index.ts   選引擎 + sanitize

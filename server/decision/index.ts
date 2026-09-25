@@ -1,7 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Product } from "../../shared/catalog.ts";
-import type { Decision, DecisionEnvelope, Section } from "../../shared/decision.ts";
+import type { Decision, DecisionEnvelope, LlmEngine, Section } from "../../shared/decision.ts";
 import { claudeEnabled, decideWithClaude } from "./claude.ts";
+import { decideWithJev, JevError, jevEnabled } from "./jev.ts";
 import { HERO_COUNT, holdsNoProducts, MAX_SECTIONS, MIN_SECTIONS, sectionCount } from "./limits.ts";
 import { decideWithRules } from "./rules.ts";
 import type { DecisionInput } from "./types.ts";
@@ -69,9 +70,32 @@ function dominantCategory(ids: string[], live: Map<string, Product>): Product["c
   return [...n.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
 }
 
+// Which model decides. SHOP_DECISION_ENGINE picks one explicitly (jev /
+// claude / rules); otherwise whichever has a key, jev first. null = rules only.
+export function activeEngine(): LlmEngine | null {
+  const want = process.env.SHOP_DECISION_ENGINE?.trim();
+  if (want === "rules") return null;
+  if (want === "jev") return jevEnabled() ? "jev" : null;
+  if (want === "claude") return claudeEnabled() ? "claude" : null;
+  if (jevEnabled()) return "jev";
+  if (claudeEnabled()) return "claude";
+  return null;
+}
+
 export async function decide(input: DecisionInput): Promise<DecisionEnvelope> {
   const t0 = Date.now();
-  if (claudeEnabled()) {
+  const engine = activeEngine();
+  if (engine === "jev") {
+    try {
+      const d = await decideWithJev(input);
+      return { decision: sanitize(d, input.products), source: "jev", latencyMs: Date.now() - t0, at: Date.now(), trigger: input.trigger };
+    } catch (err) {
+      if (err instanceof JevError && err.status === 401) console.error("[decide] jev auth failed — check TYPESAFE_API_KEY");
+      else if (err instanceof JevError && err.status === 429) console.warn("[decide] jev rate limited, using rules this round");
+      else console.warn("[decide] jev failed:", (err as Error).message);
+    }
+  }
+  if (engine === "claude") {
     try {
       const d = await decideWithClaude(input);
       return { decision: sanitize(d, input.products), source: "claude", latencyMs: Date.now() - t0, at: Date.now(), trigger: input.trigger };

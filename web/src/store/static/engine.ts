@@ -7,7 +7,7 @@
 // decisions come from server/decision/rules.ts itself, profiles from
 // shared/profile.ts.
 import { CATALOG, type Product } from "../../../../shared/catalog";
-import type { ActivityItem, CartLine, DecisionEnvelope, EventType, ServerMessage, User, UserPrefs } from "../../../../shared/decision";
+import type { ActivityItem, CartLine, DecisionEnvelope, EventType, LlmEngine, ServerMessage, User, UserPrefs } from "../../../../shared/decision";
 import { profileFrom, recentIdsFrom, type ProfileEvent } from "../../../../shared/profile";
 import { decideWithRules } from "../../../../server/decision/rules";
 import { SEED_USERS } from "../../../../server/seed";
@@ -126,7 +126,7 @@ const fail = (status: number, body: unknown) => Object.assign(new Error(`HTTP ${
 const cartOf = (id: string) => carts.get(id) ?? [];
 
 export const api = {
-  meta: async () => ({ claude: false }),
+  meta: async () => ({ engine: null as LlmEngine | null }),
   users: async () => [...users.values()],
   setPrefs: async (id: string, prefs: UserPrefs) => {
     const u = users.get(id);

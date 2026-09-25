@@ -10,7 +10,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import type { Product } from "../../../shared/catalog";
-import type { ActivityItem, CartLine, DecisionEnvelope, ServerMessage, User, UserPrefs } from "../../../shared/decision";
+import type { ActivityItem, CartLine, DecisionEnvelope, LlmEngine, ServerMessage, User, UserPrefs } from "../../../shared/decision";
 import { api, openChannel } from "./backend";
 
 const USER_KEY = "llm-shop:user";
@@ -36,7 +36,8 @@ export function withTransition(update: () => void) {
 
 interface Store {
   connected: boolean;
-  claude: boolean;
+  // The model deciding on the server; null = rule engine only.
+  engine: LlmEngine | null;
   users: User[];
   user?: User;
   products: Map<string, Product>;
@@ -68,7 +69,7 @@ export const useStore = () => {
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useState<User[]>([]);
   const [userId, setUserId] = useState<string | undefined>(readUser);
-  const [claude, setClaude] = useState(false);
+  const [engine, setEngine] = useState<LlmEngine | null>(null);
   const [connected, setConnected] = useState(false);
   const [user, setUser] = useState<User>();
   const [products, setProducts] = useState<Map<string, Product>>(new Map());
@@ -83,7 +84,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const switching = useRef(true);
 
   useEffect(() => {
-    api.meta().then((m) => setClaude(m.claude)).catch(() => {});
+    api.meta().then((m) => setEngine(m.engine)).catch(() => {});
     api.users().then((us) => {
       setUsers(us);
       setUserId((cur) => (cur && us.some((u) => u.id === cur) ? cur : us.find((u) => u.id === "u_new")?.id ?? us[0]?.id));
@@ -149,7 +150,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const store = useMemo<Store>(() => ({
-    connected, claude, users, user, products, changed, envelope, pending, deciding, cart, cartOpen, activity,
+    connected, engine, users, user, products, changed, envelope, pending, deciding, cart, cartOpen, activity,
     switchUser: (id) => { if (id === userId) return; switching.current = true; setPending(undefined); setUserId(id); },
     savePrefs: async (prefs) => {
       if (!userId) return;
@@ -172,7 +173,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return api.checkout(userId);
     },
     setCartOpen,
-  }), [connected, claude, users, user, products, changed, envelope, pending, deciding, cart, cartOpen, activity, userId, applyPending]);
+  }), [connected, engine, users, user, products, changed, envelope, pending, deciding, cart, cartOpen, activity, userId, applyPending]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

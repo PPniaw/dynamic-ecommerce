@@ -7,7 +7,7 @@
 //
 // Every field is an enum or a product id. The LLM decides; it never writes the
 // words (all copy lives in web/src/store/copy.ts, keyed by these enums).
-// The Claude engine and the rule engine produce this same shape.
+// Every engine (jev, Claude, rules) produces this same shape.
 import { z } from "zod/v4";
 import { SHOP_CATEGORIES, type Product } from "./catalog.ts";
 import type { Persona } from "./personas.ts";
@@ -95,7 +95,9 @@ export const DecisionSchema = z.object({
 export type Decision = z.infer<typeof DecisionSchema>;
 export type Section = Decision["sections"][number];
 export type RailLayout = (typeof RAIL_LAYOUTS)[number];
-export type DecisionSource = "claude" | "rules";
+export type DecisionSource = "jev" | "claude" | "rules";
+// The model-backed engines. "rules" is always there as the fallback.
+export type LlmEngine = Exclude<DecisionSource, "rules">;
 
 export interface DecisionEnvelope {
   decision: Decision;

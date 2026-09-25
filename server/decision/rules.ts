@@ -8,7 +8,7 @@
 // products chosen by each section's intent.
 import { ARCHETYPE_PRESETS, pickArchetype, scoreArchetypes } from "../../shared/archetypes.ts";
 import type { Product, ShopCategory } from "../../shared/catalog.ts";
-import type { Decision, Section } from "../../shared/decision.ts";
+import type { Archetype, Decision, Section } from "../../shared/decision.ts";
 import type { Interest, Persona, Trait } from "../../shared/personas.ts";
 import { HERO_COUNT, MAX_SECTIONS, sectionCount } from "./limits.ts";
 import type { DecisionInput } from "./types.ts";
@@ -39,9 +39,21 @@ const TRAIT_TAGS: Partial<Record<Trait, string[]>> = {
   慢活: ["calm"], 念舊: ["handmade"], 重設計: ["minimal", "premium"], 務實: ["daily"], 愛送禮: ["gift"],
 };
 
+// Judgements from a model that answers questions instead of writing JSON
+// (jev, see jev.ts). Each one replaces the rule engine's own guess; the
+// shopper's explicit preferences still win over all of them.
+export interface DecisionHints {
+  archetype?: Archetype;
+  scheme?: "light" | "dark";
+  headline?: Decision["hero"]["headline"];
+  gift?: boolean;
+  // product id → probability (0..1) that this shopper wants it.
+  relevance?: Map<string, number>;
+}
+
 const personaEmpty = (p: Persona) => !p.mbti && !p.zodiac && p.traits.length === 0 && p.interests.length === 0;
 
-export function decideWithRules(input: DecisionInput): Decision {
+export function decideWithRules(input: DecisionInput, hints: DecisionHints = {}): Decision {
   const { user, profile, products, recentIds, cartIds } = input;
   const { prefs } = user;
   const persona = prefs.persona;
@@ -49,18 +61,19 @@ export function decideWithRules(input: DecisionInput): Decision {
   const inStock = products.filter((p) => p.stock > 0); // never feature stock 0
   const byId = new Map(products.map((p) => [p.id, p]));
   const budget = prefs.budget ?? Infinity;
-  const gift = /禮|送/.test(prefs.need);
+  // A gift need in the shopper's own words stands even if a model reads it otherwise.
+  const gift = /禮|送/.test(prefs.need) || hints.gift === true;
   const traits = new Set<string>(persona.traits);
   const priceSensitive = traits.has("比價") || prefs.budget != null || profile.dealClicks >= 2;
 
   // ---- archetype + preset --------------------------------------------------
   const archetype = prefs.archetype !== "auto"
     ? prefs.archetype
-    : pickArchetype(scoreArchetypes(persona, profile.dealClicks, prefs.budget != null));
+    : hints.archetype ?? pickArchetype(scoreArchetypes(persona, profile.dealClicks, prefs.budget != null));
   const preset = ARCHETYPE_PRESETS[archetype];
   const theme: Decision["theme"] = {
     ...preset.theme,
-    scheme: prefs.scheme !== "auto" ? prefs.scheme : traits.has("夜貓子") ? "dark" : preset.theme.scheme,
+    scheme: prefs.scheme !== "auto" ? prefs.scheme : hints.scheme ?? (traits.has("夜貓子") ? "dark" : preset.theme.scheme),
   };
 
   // ---- scoring ---------------------------------------------------------------
@@ -81,6 +94,8 @@ export function decideWithRules(input: DecisionInput): Decision {
     if (gift && p.tags.includes("gift")) s += 1.5;
     if (p.price > budget) s -= 4;
     if (priceSensitive && p.compareAt !== undefined) s += 1;
+    // A model's read of the whole shopper outweighs any single heuristic above.
+    s += (hints.relevance?.get(p.id) ?? 0) * 5;
     return s + Math.log1p(p.sold) * 0.2;
   };
   const scores = new Map(inStock.map((p) => [p.id, score(p)]));
@@ -148,7 +163,7 @@ export function decideWithRules(input: DecisionInput): Decision {
   const heroPool = fit(preset.hero.variant === "flash" ? [...deals, ...ranked.filter((p) => p.compareAt === undefined)] : ranked);
   const hero: Decision["hero"] = {
     ...preset.hero,
-    headline: gift ? "gift_season" : preset.hero.headline,
+    headline: hints.headline ?? (gift ? "gift_season" : preset.hero.headline),
     productIds: heroPool.slice(0, heroN).map((p) => p.id),
   };
 

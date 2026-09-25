@@ -2,12 +2,12 @@
 // decision is waiting — a button to apply it now instead of on the next page.
 import { useState } from "react";
 import { cn } from "../ds/ui/cn";
-import { ARCHETYPE_LABEL, SIGNAL_LABEL, TRIGGER_LABEL } from "./copy";
+import { ARCHETYPE_LABEL, SIGNAL_LABEL, SOURCE_LABEL, TRIGGER_LABEL } from "./copy";
 import { STATIC } from "./backend";
 import { useStore } from "./StoreContext";
 
 export function DecisionPeek() {
-  const { envelope, pending, deciding, claude, applyPending, connected } = useStore();
+  const { envelope, pending, deciding, engine, applyPending, connected } = useStore();
   const [open, setOpen] = useState(false);
   if (!envelope) return null;
   const d = envelope.decision;
@@ -24,9 +24,9 @@ export function DecisionPeek() {
           <p className="txt-xsmall text-fg-muted">這家店現在是</p>
           <p className="heading type-h3">「{ARCHETYPE_LABEL[d.archetype].name}」店</p>
           <p className="mt-1 txt-small text-fg-subtle">
-            由{envelope.source === "claude" ? " Claude " : "規則引擎"}決定 · 因為「{TRIGGER_LABEL[envelope.trigger] ?? envelope.trigger}」· {envelope.latencyMs}ms
+            由 {SOURCE_LABEL[envelope.source]} 決定 · 因為「{TRIGGER_LABEL[envelope.trigger] ?? envelope.trigger}」· {envelope.latencyMs}ms
           </p>
-          {!claude && <p className="mt-2 txt-xsmall text-warning">{STATIC ? "預覽版:由瀏覽器裡的規則引擎決策,商品照片無法載入。" : "尚未設定 ANTHROPIC_API_KEY,目前由規則引擎決策。"}</p>}
+          {!engine && <p className="mt-2 txt-xsmall text-warning">{STATIC ? "預覽版:由瀏覽器裡的規則引擎決策,商品照片無法載入。" : "尚未設定 TYPESAFE_API_KEY(jev)或 ANTHROPIC_API_KEY(Claude),目前由規則引擎決策。"}</p>}
           <div className="mt-3 flex flex-wrap gap-1">
             {d.signals.map((s) => <span key={s} className="rounded-badge bg-component px-2 py-0.5 txt-xsmall">{SIGNAL_LABEL[s]}</span>)}
           </div>
@@ -39,7 +39,7 @@ export function DecisionPeek() {
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
         className="flex cursor-pointer items-center gap-2 rounded-full bg-base px-3.5 py-2 txt-small shadow-flyout ring-1 ring-line">
         <span className={cn("h-2 w-2 rounded-full", !connected ? "bg-danger" : deciding ? "animate-pulse bg-warning" : "bg-success")} />
-        {deciding ? "AI 正在重新安排…" : `${ARCHETYPE_LABEL[d.archetype].name}店 · ${envelope.source === "claude" ? "Claude" : "規則"}`}
+        {deciding ? "AI 正在重新安排…" : `${ARCHETYPE_LABEL[d.archetype].name}店 · ${SOURCE_LABEL[envelope.source]}`}
       </button>
     </div>
   );

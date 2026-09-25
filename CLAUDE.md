@@ -19,7 +19,9 @@ npm run typecheck
 npm run check:contrast   # 改 palettes.ts / derive.ts 之後必跑
 ```
 
-`ANTHROPIC_API_KEY` 沒設就用規則引擎(輸出格式相同)。**目前還沒有 key,Claude 那條路只對 mock 驗過。**
+決策引擎依 key 決定:`TYPESAFE_API_KEY` → jev(TypeSafe AI),否則 `ANTHROPIC_API_KEY` → Claude,
+都沒有就用規則引擎(輸出格式相同);`SHOP_DECISION_ENGINE=jev|claude|rules` 可強制指定。
+**目前兩把 key 都沒有,jev 和 Claude 兩條路都只對 mock 驗過。**
 環境變數用 `SHOP_CLAUDE_MODEL` / `SHOP_CLAUDE_EFFORT` —— 不要改回 `CLAUDE_*`,
 雲端環境本身就設了 `CLAUDE_EFFORT`,會蓋掉我們的值(踩過)。
 
@@ -28,7 +30,7 @@ npm run check:contrast   # 改 palettes.ts / derive.ts 之後必跑
 - `shared/` —— 前後端共用:`decision.ts`(schema v2)、`archetypes.ts`(四種店型預設 + 個性評分)、
   `personas.ts`、`catalog.ts`(24 件、6 類、Unsplash 圖)、`profile.ts`(事件 → 偏好,純函式)
 - `server/` —— Express + ws + `node:sqlite`(`data/shop-v2.db`)、市場模擬、決策排程、
-  `decision/rules.ts`(規則引擎)、`decision/claude.ts`、`decision/index.ts`(sanitize)、`decision/limits.ts`
+  `decision/rules.ts`(規則引擎)、`decision/jev.ts`、`decision/claude.ts`、`decision/index.ts`(選引擎 + sanitize)、`decision/limits.ts`
 - `web/src/ds/` —— 設計系統:token(`tokens.css`、`theme/`)、基本元件、商品卡
 - `web/src/store/` —— 商店:`sections/`、`cards/`、`pages/`,各有四種店型的變體;`copy.ts` 是所有文字
 - `web/src/store/static/engine.ts` —— 瀏覽器內的後端,給發布的預覽頁用(`VITE_STATIC=1`)
@@ -37,6 +39,9 @@ npm run check:contrast   # 改 palettes.ts / derive.ts 之後必跑
 
 - **LLM 輸出只有 enum 和商品 id**。文字全在 `web/src/store/copy.ts`,依店型換語氣。
 - **會影響正確性的東西不交給 LLM**:售完 / 特價 / 少量徽章、庫存門檻、能不能加購都由程式算。
+- **jev 只回答題目,不產生 JSON**:它判斷店型、深淺色、標語、送禮、每件商品的喜好機率,
+  版面由 `decideWithRules(input, hints)` 組。**不裝 `@typesafe-ai/sdk`**,直接打 `POST /v1/systemone`
+  (Bearer key),環境變數名稱沿用官方 SDK 的 `TYPESAFE_*`。
 - **Claude 呼叫不用 SDK 的 `betaZodOutputFormat`**:它會把 enum 降成描述文字。用 `z.toJSONSchema`。
 - **顏色只從 5 個種子色推算**,`derive.ts` 會把不及格的角色色推到 WCAG AA。LLM 選 palette 和 surface,不選色碼。
 - **`text-base` 在 Tailwind 是字級,不是顏色**。要用底色當文字色寫 `text-(--bg-base)`。
@@ -65,6 +70,8 @@ PREVIEW_OUT=<dir> npx vite build --config vite.preview.config.ts                
 
 ## 還沒驗證 / 待辦
 
+- **jev 實際決策**:沒有 key,雲端環境也連不到 `api.typesafe.ai`(要在網路設定放行)。
+  API 格式是照官方 SDK 0.6.0 的原始碼寫的;一次問 4 + 有庫存商品數(約 28)題,題數上限、延遲未知。
 - **Claude 實際決策**:沒有 API key,品質與延遲未知(預設 `claude-opus-5`、effort `low`、server-side fallback 開)。
 - **商品圖**:Unsplash id 憑記憶挑的,建置環境連不到圖庫。本機跑 `/lab.html` 的「圖片」區會列出失敗的。
 - **沒有登入**;付款是模擬的。

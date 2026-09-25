@@ -1,4 +1,4 @@
-import type { CartLine, Profile, User, UserPrefs } from "../../../shared/decision";
+import type { CartLine, LlmEngine, Profile, User, UserPrefs } from "../../../shared/decision";
 
 async function j<T>(res: Response): Promise<T> {
   if (!res.ok) throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status, body: await res.json().catch(() => null) });
@@ -9,7 +9,7 @@ const json = (method: string, body: unknown): RequestInit => ({ method, headers:
 export interface Order { id: number; total: number; ts: number; items: { productId: string; qty: number; price: number }[] }
 
 export const api = {
-  meta: () => fetch("/api/meta").then(j<{ claude: boolean }>),
+  meta: () => fetch("/api/meta").then(j<{ engine: LlmEngine | null }>),
   users: () => fetch("/api/users").then(j<User[]>),
   setPrefs: (id: string, prefs: UserPrefs) => fetch(`/api/users/${id}/prefs`, json("PUT", prefs)).then(j<User>),
   profile: (id: string) => fetch(`/api/users/${id}/profile`).then(j<Profile>),

@@ -10,8 +10,7 @@ import {
   checkout, CheckoutError, createUser, getCart, getProduct, getUser, listOrders, listPrices,
   listProducts, listUsers, logEvent, saveDecision, setCartQty, setPrefs, updateProduct,
 } from "./db.ts";
-import { decide, decideWithRules, sanitize, type DecisionInput } from "./decision/index.ts";
-import { claudeEnabled } from "./decision/claude.ts";
+import { activeEngine, decide, decideWithRules, sanitize, type DecisionInput } from "./decision/index.ts";
 import { buildProfile, recentProductIds } from "./profile.ts";
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -140,7 +139,7 @@ setInterval(marketTick, Number(process.env.MARKET_TICK_MS ?? 2500));
 
 // ---- REST ------------------------------------------------------------------
 
-app.get("/api/meta", (_req, res) => { res.json({ claude: claudeEnabled() }); });
+app.get("/api/meta", (_req, res) => { res.json({ engine: activeEngine() }); });
 app.get("/api/products", (_req, res) => { res.json(listProducts()); });
 app.get("/api/users", (_req, res) => { res.json(listUsers()); });
 
@@ -264,7 +263,7 @@ wss.on("connection", (ws, req) => {
     const env: DecisionEnvelope = { decision: sanitize(decideWithRules(input), input.products), source: "rules", latencyMs: Date.now() - t0, at: Date.now(), trigger: "open" };
     latest.set(userId, env);
     send(ws, { type: "decision", envelope: env });
-    if (claudeEnabled()) requestDecision(userId, "open", 0);
+    if (activeEngine()) requestDecision(userId, "open", 0);
   }
 
   ws.on("close", () => {
@@ -275,5 +274,5 @@ wss.on("connection", (ws, req) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`[shop] http://localhost:${PORT}  decision engine: ${claudeEnabled() ? "Claude" : "rules (set ANTHROPIC_API_KEY for Claude)"}`);
+  console.log(`[shop] http://localhost:${PORT}  decision engine: ${activeEngine() ?? "rules (set TYPESAFE_API_KEY for jev, or ANTHROPIC_API_KEY for Claude)"}`);
 });

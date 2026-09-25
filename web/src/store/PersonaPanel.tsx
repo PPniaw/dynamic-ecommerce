@@ -167,7 +167,7 @@ function PersonaDialog({ open, onClose }: { open: boolean; onClose: () => void }
                     <button key={a} type="button" className={chip(draft.archetype === a)} onClick={() => setDraft({ ...draft, archetype: a })}>{a === "auto" ? "交給 AI" : ARCHETYPE_LABEL[a].name}</button>
                   ))}
                 </div>
-                <p className="txt-xsmall text-fg-muted">這是規則引擎的分數;有 API key 時由 Claude 綜合判斷,結果可能不同。</p>
+                <p className="txt-xsmall text-fg-muted">這是規則引擎的分數;有 API key 時由 AI(jev 或 Claude)綜合判斷,結果可能不同。</p>
               </section>
             </div>
             <div className="sticky bottom-0 flex gap-2 border-t border-line bg-base p-4">
