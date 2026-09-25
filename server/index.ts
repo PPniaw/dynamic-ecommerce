@@ -13,8 +13,9 @@ import {
 import { applyChatUpdate, understandByKeywords, type ChatContext, type ChatResult, type ChatTurn, type ChatUpdate } from "../shared/chat.ts";
 import { chatWithClaude, claudeEnabled } from "./decision/claude.ts";
 import { decide, decideWithRules, llmEnabled, sanitize, type DecisionInput } from "./decision/index.ts";
-import { typesafeEnabled, understandWithTypeSafe } from "./decision/typesafe.ts";
-import { buildProfile, recentProductIds } from "./profile.ts";
+import { inferTraitsWithTypeSafe, typesafeEnabled, understandWithTypeSafe } from "./decision/typesafe.ts";
+import { buildProfile, events as profileEvents, recentProductIds } from "./profile.ts";
+import { applyInferred, behaviourSummary, blend, BEHAVIOUR_TRIGGERS, INFER_COOLDOWN_MS, INFER_EVERY_EVENTS, inferTraitsByRules, localHour, mergeManualPrefs, MIN_EVENTS } from "../shared/infer.ts";
 
 const PORT = Number(process.env.PORT ?? 8787);
 const app = express();
@@ -62,14 +63,52 @@ function requestDecision(userId: string, trigger: string, delay = DEBOUNCE_MS) {
   s.timer = setTimeout(() => void run(userId, trigger), delay);
 }
 
+// ---- behaviour → personality (shared/infer.ts) ------------------------------
+//
+// After enough browsing, ask Jev (or the rule fallback) which traits the
+// behaviour shows, and add confident guesses to the persona before deciding —
+// so the store reshapes around who the shopper seems to be, not only what they
+// clicked. Rate-limited: once per cooldown and every few new events.
+
+const inferState = new Map<string, { at: number; events: number }>();
+const TZ = process.env.SHOP_TZ ?? "Asia/Taipei";
+
+async function maybeInfer(userId: string, trigger: string) {
+  if (!BEHAVIOUR_TRIGGERS.has(trigger)) return;
+  const user = getUser(userId);
+  if (!user) return;
+  const ev = profileEvents(userId, 200);
+  const last = inferState.get(userId) ?? { at: 0, events: 0 };
+  if (ev.length < MIN_EVENTS || Date.now() - last.at < INFER_COOLDOWN_MS || ev.length - last.events < INFER_EVERY_EVENTS) return;
+  inferState.set(userId, { at: Date.now(), events: ev.length });
+
+  const summary = behaviourSummary(ev, getCart(userId), listProducts(), localHour(TZ));
+  let probs: Awaited<ReturnType<typeof inferTraitsWithTypeSafe>>;
+  let by = "rules";
+  try {
+    if (typesafeEnabled()) { probs = blend(await inferTraitsWithTypeSafe(summary), inferTraitsByRules(summary)); by = "typesafe+rules"; }
+    else probs = inferTraitsByRules(summary);
+  } catch (err) {
+    console.warn("[infer] TypeSafe failed, using rules:", (err as Error).message);
+    probs = inferTraitsByRules(summary);
+  }
+  const { prefs, change } = applyInferred(user.prefs, probs);
+  if (!change.added.length && !change.dropped.length) return;
+  setPrefs(userId, prefs);
+  toUser(userId, { type: "user", user: { ...user, prefs } });
+  console.log(`[infer] ${userId} → ${by} +${change.added.join(",") || "-"} −${change.dropped.join(",") || "-"}`);
+}
+
 async function run(userId: string, trigger: string): Promise<DecisionEnvelope | undefined> {
   const s = sched.get(userId) ?? { inFlight: false, lastMarketRun: 0 };
   sched.set(userId, s);
-  const input = buildInput(userId, trigger);
-  if (!input) return;
+  if (!getUser(userId)) return;
   s.inFlight = true;
   toUser(userId, { type: "deciding", trigger });
   try {
+    await maybeInfer(userId, trigger).catch((err) => console.warn("[infer]", (err as Error).message));
+    const input = buildInput(userId, trigger);
+    if (!input) return;
     const env = await decide(input);
     latest.set(userId, env);
     saveDecision(userId, env.source, trigger, env.latencyMs, env.decision);
@@ -183,7 +222,8 @@ function parsePrefs(b: Record<string, unknown>): UserPrefs {
 app.put("/api/users/:id/prefs", (req, res) => {
   const user = getUser(req.params.id);
   if (!user) { res.status(404).end(); return; }
-  const prefs = parsePrefs(req.body ?? {});
+  // Guesses the shopper removed become rejections (shared/infer.ts).
+  const prefs = mergeManualPrefs(user.prefs, parsePrefs(req.body ?? {}));
   setPrefs(user.id, prefs);
   const updated = { ...user, prefs };
   // Other tabs of the same shopper see the new persona / prefs right away.

@@ -20,6 +20,7 @@ import { choice, noul, TypeSafeClient, type ChoiceQuestion, type JsonValue, type
 import { ARCHETYPE_PRESETS } from "../../shared/archetypes.ts";
 import { SHOP_CATEGORIES, type ShopCategory } from "../../shared/catalog.ts";
 import { understandByKeywords, type ChatContext, type ChatTurn, type ChatUpdate } from "../../shared/chat.ts";
+import { INFERABLE, observations, type BehaviourSummary, type InferableTrait } from "../../shared/infer.ts";
 import type { Decision } from "../../shared/decision.ts";
 import { INTERESTS, TRAITS, ZODIAC_ELEMENT, type Interest, type Trait } from "../../shared/personas.ts";
 import { decideWithRules } from "./rules.ts";
@@ -347,4 +348,38 @@ export async function understandWithTypeSafe(ctx: ChatContext, history: ChatTurn
     mbti: kw.mbti,
     zodiac: kw.zodiac,
   };
+}
+
+// ---- behaviour → traits ---------------------------------------------------------
+// One yes/no per trait browsing can show (shared/infer.ts INFERABLE), with the
+// same glosses as chat. The caller applies thresholds and the shopper's own
+// statements / rejections (applyInferred).
+// What each trait looks like in clicks. Spelling out yes/no evidence cut Jev's
+// bias sharply (重設計 for a gift browser: 0.53 → 0.23; 比價 for an all-on-sale
+// browser: 0.53 → 0.68).
+const TRAIT_EVIDENCE: Record<InferableTrait, { true: string; false: string }> = {
+  慢活: { true: "Browses slowly and calmly; drawn to calming, relaxing, handmade things.", false: "Fast-paced or task-driven browsing." },
+  衝動: { true: "Adds things to the cart soon after first seeing them; quick decisions.", false: "Looks around a lot before adding anything, or adds nothing." },
+  好奇: { true: "Wanders across many different categories and new things.", false: "Stays within one or two categories." },
+  務實: { true: "Focuses on everyday, practical, durable items.", false: "Focuses on decorative, premium or giftable items." },
+  比價: { true: "Mostly looks at or buys discounted / on-sale items, or sticks to cheap ones.", false: "Pays little attention to discounts; views full-price items." },
+  念舊: { true: "Drawn to handmade, traditional, crafted items.", false: "Drawn to modern, new or mass-made items." },
+  愛冒險: { true: "Looks at outdoor, travel and everyday-carry gear.", false: "Looks at home, table and indoor things." },
+  夜貓子: { true: "Shopping late at night (23:00–04:00).", false: "Shopping during the day or evening." },
+  重設計: { true: "Gravitates to premium or minimalist design pieces, or well above-median prices, not driven by discounts.", false: "Browsing is driven by other things: price, gifts, practicality, relaxing." },
+  愛送禮: { true: "Mostly engages with giftable items, or several items for other people.", false: "Mostly buys for themself." },
+};
+
+export async function inferTraitsWithTypeSafe(summary: BehaviourSummary): Promise<Partial<Record<Trait, number>>> {
+  const questions: Questions = {};
+  for (const t of INFERABLE) {
+    questions[t] = noul(`Is this shopper ${TRAIT_GLOSS[t]}, judging from their browsing?`, TRAIT_EVIDENCE[t]);
+  }
+  const res = await getClient().systemOne({ state: { shopper_behaviour: observations(summary) }, questions });
+  const out: Partial<Record<Trait, number>> = {};
+  for (const t of INFERABLE) {
+    const r = res.answers[t];
+    if (r?.type === "noul") out[t] = r.noul;
+  }
+  return out;
 }

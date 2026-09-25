@@ -11,6 +11,7 @@
 import { z } from "zod/v4";
 import { SHOP_CATEGORIES, type ShopCategory } from "./catalog.ts";
 import { ARCHETYPES, type Archetype, type Profile, type UserPrefs } from "./decision.ts";
+import { declareTraits } from "./infer.ts";
 import { INTERESTS, MBTI_TYPES, TRAITS, ZODIACS, type Interest, type Trait } from "./personas.ts";
 
 export interface ChatTurn { role: "user" | "assistant"; text: string }
@@ -90,7 +91,10 @@ export function applyChatUpdate(prefs: UserPrefs, u: ChatUpdate): { prefs: UserP
   if (need && need !== prefs.need) { next.need = need; changes.push({ kind: "need", value: need }); }
   if (u.scheme !== "keep" && u.scheme !== prefs.scheme) { next.scheme = u.scheme; changes.push({ kind: "scheme", value: u.scheme }); }
   if (u.archetype !== "keep" && u.archetype !== prefs.archetype) { next.archetype = u.archetype; changes.push({ kind: "archetype", value: u.archetype }); }
-  return { prefs: next, changes };
+  // Said in chat = stated, not guessed; and a guess can't outlive its trait.
+  const stated = declareTraits(next, u.traitsAdd);
+  const inferred = (stated.persona.inferred ?? []).filter((t) => stated.persona.traits.includes(t));
+  return { prefs: { ...stated, persona: { ...stated.persona, inferred } }, changes };
 }
 
 // ---- keyword reader (no AI) -------------------------------------------------

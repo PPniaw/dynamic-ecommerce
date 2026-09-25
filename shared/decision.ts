@@ -35,7 +35,7 @@ export const SIGNALS = [
   "cold_start", "persona_introvert", "persona_extrovert", "persona_feeling", "persona_thinking",
   "persona_practical", "persona_curious", "zodiac_element", "interest_match", "category_affinity",
   "price_sensitive", "premium_taste", "cart_intent", "stock_urgency", "price_drop",
-  "explicit_need", "gift_intent", "budget_cap", "night_owl",
+  "explicit_need", "gift_intent", "budget_cap", "night_owl", "inferred_persona",
 ] as const;
 
 export const ThemeSchema = z.object({

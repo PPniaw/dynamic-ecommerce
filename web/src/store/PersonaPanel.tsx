@@ -2,7 +2,7 @@
 // zodiac, traits, interests, budget, need) and watch the store change. The
 // archetype scores update live as you edit, so the reason is visible.
 import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from "@headlessui/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { pickArchetype, scoreArchetypes } from "../../../shared/archetypes";
 import { SHOP_CATEGORIES } from "../../../shared/catalog";
 import { ARCHETYPES, type Archetype, type User, type UserPrefs } from "../../../shared/decision";
@@ -10,7 +10,7 @@ import { INTERESTS, TRAITS, ZODIACS, type MBTI } from "../../../shared/personas"
 import { ThemeScope, useTheme } from "../ds/theme/ThemeScope";
 import { Button } from "../ds/ui/Button";
 import { cn } from "../ds/ui/cn";
-import { ARCHETYPE_LABEL, CATEGORY_COPY } from "./copy";
+import { ARCHETYPE_LABEL, CATEGORY_COPY, INFER_COPY } from "./copy";
 import { useStore } from "./StoreContext";
 
 export function personaLine(u: User) {
@@ -21,9 +21,17 @@ export function personaLine(u: User) {
 export function PersonaDock() {
   const { user } = useStore();
   const [open, setOpen] = useState(false);
+  const guessed = useGuessToast(user);
   if (!user) return null;
   return (
     <>
+      {guessed && (
+        <button type="button" onClick={() => setOpen(true)} role="status"
+          className="fixed bottom-[calc(124px+env(safe-area-inset-bottom,0px))] left-4 z-40 max-w-[calc(100vw-2rem)] animate-rise-in cursor-pointer rounded-card bg-base px-3.5 py-2 text-left txt-small shadow-flyout ring-1 ring-line">
+          {INFER_COPY.toast(guessed)}
+          <span className="block txt-xsmall text-fg-muted">{INFER_COPY.toastHint}</span>
+        </button>
+      )}
       <button type="button" onClick={() => setOpen(true)}
         className="fixed bottom-[calc(16px+env(safe-area-inset-bottom,0px))] left-4 z-40 flex cursor-pointer items-center gap-2.5 rounded-full bg-primary py-1.5 pr-4 pl-1.5 text-on-primary shadow-flyout transition-transform hover:-translate-y-0.5">
         <span className="grid h-8 w-8 place-items-center rounded-full bg-accent txt-small font-bold text-on-accent">{user.name.slice(0, 1)}</span>
@@ -35,6 +43,27 @@ export function PersonaDock() {
       <PersonaDialog open={open} onClose={() => setOpen(false)} />
     </>
   );
+}
+
+// A new guess from behaviour (shared/infer.ts) → a short note above the dock.
+// Only for the same shopper: switching shopper isn't a guess.
+function useGuessToast(user: User | undefined): string[] | null {
+  const [shown, setShown] = useState<string[] | null>(null);
+  const prev = useRef<{ id: string; inferred: string[] } | null>(null);
+  const inferred = user?.prefs.persona.inferred ?? [];
+  const key = inferred.join();
+  useEffect(() => {
+    if (!user) return;
+    const before = prev.current;
+    prev.current = { id: user.id, inferred };
+    if (!before || before.id !== user.id) return;
+    const added = inferred.filter((t) => !before.inferred.includes(t));
+    if (!added.length) return;
+    setShown(added);
+    const t = setTimeout(() => setShown(null), 6000);
+    return () => clearTimeout(t);
+  }, [user?.id, key]); // eslint-disable-line react-hooks/exhaustive-deps
+  return shown;
 }
 
 const AXES: [string, string, string, string][] = [["I", "內向", "E", "外向"], ["N", "直覺", "S", "實感"], ["F", "情感", "T", "思考"], ["P", "隨性", "J", "計畫"]];
@@ -116,8 +145,18 @@ function PersonaDialog({ open, onClose }: { open: boolean; onClose: () => void }
                 </Field>
                 <Field label="個性">
                   <div className="flex flex-wrap gap-1.5">
-                    {TRAITS.map((t) => <button key={t} type="button" className={chip(persona.traits.includes(t))} onClick={() => setPersona({ traits: toggle(persona.traits, t) })}>{t}</button>)}
+                    {TRAITS.map((t) => {
+                      const guess = persona.inferred?.includes(t) && persona.traits.includes(t);
+                      return (
+                        <button key={t} type="button" title={guess ? INFER_COPY.chipTitle : undefined}
+                          className={cn(chip(persona.traits.includes(t)), guess && "bg-transparent text-fg outline-1 -outline-offset-1 outline-dashed outline-fg")}
+                          onClick={() => setPersona({ traits: toggle(persona.traits, t) })}>
+                          {t}{guess && <span className="ml-1 txt-xsmall opacity-70">{INFER_COPY.chip}</span>}
+                        </button>
+                      );
+                    })}
                   </div>
+                  {!!persona.inferred?.some((t) => persona.traits.includes(t)) && <p className="mt-1 txt-xsmall text-fg-muted">{INFER_COPY.panelHint}</p>}
                 </Field>
                 <Field label="興趣">
                   <div className="flex flex-wrap gap-1.5">

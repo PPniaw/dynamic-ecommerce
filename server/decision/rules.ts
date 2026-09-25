@@ -188,6 +188,7 @@ export function decideWithRules(input: DecisionInput, hints: RuleHints = {}): De
   if ((m[1] === "N" && m[3] === "P") || traits.has("好奇") || traits.has("愛冒險")) signals.add("persona_curious");
   if (persona.zodiac) signals.add("zodiac_element");
   if (traits.has("夜貓子")) signals.add("night_owl");
+  if (persona.inferred?.length) signals.add("inferred_persona");
   const interestTags = new Set(persona.interests.flatMap((i) => INTEREST_HINTS[i].tags ?? []));
   if (ranked.slice(0, 8).some((p) => interestCats.has(p.category) || p.tags.some((t) => interestTags.has(t)))) {
     signals.add("interest_match");

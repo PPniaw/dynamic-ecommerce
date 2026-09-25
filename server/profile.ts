@@ -5,7 +5,7 @@ import type { Product } from "../shared/catalog.ts";
 import { profileFrom, recentIdsFrom, type ProfileEvent } from "../shared/profile.ts";
 import { getCart, recentEvents } from "./db.ts";
 
-const events = (userId: string, limit?: number): ProfileEvent[] =>
+export const events = (userId: string, limit?: number): ProfileEvent[] =>
   recentEvents(userId, limit).map((e) => ({ type: e.type, productId: e.product_id, ts: e.ts }));
 
 export function buildProfile(userId: string, products: Product[]): Profile {

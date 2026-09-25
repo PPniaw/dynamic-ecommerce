@@ -113,7 +113,7 @@ export const SIGNAL_LABEL: Record<Decision["signals"][number], string> = {
   persona_thinking: "理性", persona_practical: "務實", persona_curious: "好奇", zodiac_element: "星座元素",
   interest_match: "興趣相符", category_affinity: "分類偏好", price_sensitive: "價格敏感", premium_taste: "偏好質感",
   cart_intent: "購物車意圖", stock_urgency: "庫存急迫", price_drop: "有降價", explicit_need: "明確需求",
-  gift_intent: "送禮需求", budget_cap: "有預算上限", night_owl: "夜貓子",
+  gift_intent: "送禮需求", budget_cap: "有預算上限", night_owl: "夜貓子", inferred_persona: "從逛法推測個性",
 };
 
 // Which engine made the decision: long form in the panel, short on the pill.
@@ -184,3 +184,12 @@ export function changeLabel(c: ChatChange): string {
     case "zodiac": return `${c.value}座`;
   }
 }
+
+// ---- traits guessed from behaviour (shared/infer.ts) -------------------------
+export const INFER_COPY = {
+  toast: (traits: string[]) => `看你的逛法,猜你是「${traits.join("、")}」`,
+  toastHint: "店面會照這個調整 · 點這裡修改",
+  chip: "猜",
+  chipTitle: "從你的逛法推測的;點掉就不會再猜",
+  panelHint: "虛線的是從你的逛法猜的。點掉就不會再猜。",
+};

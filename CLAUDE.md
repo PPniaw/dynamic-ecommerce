@@ -27,7 +27,7 @@ TypeSafe 的文件站在這個環境連不到,SDK 的 README 與型別(`node_mod
 
 ## 結構
 
-- `shared/` —— 前後端共用:`chat.ts`(對話 → 偏好更新、關鍵字讀法、Claude prompt)、`decision.ts`(schema v2)、`archetypes.ts`(四種店型預設 + 個性評分)、
+- `shared/` —— 前後端共用:`infer.ts`(行為 → 猜個性)、`chat.ts`(對話 → 偏好更新、關鍵字讀法、Claude prompt)、`decision.ts`(schema v2)、`archetypes.ts`(四種店型預設 + 個性評分)、
   `personas.ts`、`catalog.ts`(24 件、6 類、Unsplash 圖)、`profile.ts`(事件 → 偏好,純函式)
 - `server/` —— Express + ws + `node:sqlite`(`data/shop-v2.db`)、市場模擬、決策排程、
   `decision/rules.ts`(規則引擎)、`decision/typesafe.ts`、`decision/claude.ts`、`decision/index.ts`(sanitize)、`decision/limits.ts`
@@ -46,6 +46,11 @@ TypeSafe 的文件站在這個環境連不到,SDK 的 README 與型別(`node_mod
   (trigger `chat`,和 `prefs` 一樣不等換頁)。讀法:Claude(server 有 key,或預覽頁的 `sample`)> Jev > 關鍵字。
   **回話是唯一讓 LLM 寫給顧客看的文字**:prompt 禁止提價格、折扣、庫存;價格和庫存由回話下的商品卡從即時資料顯示。
   沒有 AI 回話時(`reply: null`)前端用 `copy.ts` 的 `CHAT_COPY` 依店型回。
+- **從行為猜個性**(`shared/infer.ts`):瀏覽類觸發、至少 4 個事件、每 15 秒且新增 3 個事件才跑一次。
+  行為先整理成白話觀察句(Jev 讀原始數字很差),每個可猜的個性問一題、附上「是 / 不是」的依據;
+  **Jev 60% + 規則 40% 加權**(Jev 單獨時對每個人都偏向「重設計」)。≥ 0.75 加入、< 0.35 撤掉。
+  猜的記在 `persona.inferred`(面板虛線、標「猜」,並跳提示);顧客點掉的進 `persona.rejected`,不再猜;
+  顧客自己說的(面板或聊天)不算猜。內向 / 外向 / 感性 / 理性不從行為猜。預覽頁只用規則。
 - **Claude 呼叫不用 SDK 的 `betaZodOutputFormat`**:它會把 enum 降成描述文字。用 `z.toJSONSchema`。
 - **顏色只從 5 個種子色推算**,`derive.ts` 會把不及格的角色色推到 WCAG AA。LLM 選 palette 和 surface,不選色碼。
 - **`text-base` 在 Tailwind 是字級,不是顏色**。要用底色當文字色寫 `text-(--bg-base)`。
@@ -85,5 +90,6 @@ PREVIEW_OUT=<dir> npx vite build --config vite.preview.config.ts                
   混搭組合(例如索引店配粉色、貼紙卡)沒有在瀏覽器裡逐一看過。
 - **商品圖**:Unsplash id 憑記憶挑的,建置環境連不到圖庫。本機跑 `/lab.html` 的「圖片」區會列出失敗的。
 - **聊天**:預覽頁的 Claude 路徑只用假的 `sample` 在 Playwright 驗過資料流;真的在 claude.ai 上的回話品質與延遲還沒看。
-  server 的 Claude 聊天路徑沒有 key,沒跑過。行為目前只影響偏好,**不會回推個性標籤**(可以之後讓 Jev 做)。
+  server 的 Claude 聊天路徑沒有 key,沒跑過。
+- **猜個性**:只用兩種模擬逛法(專看特價 + 秒加購物車、慢慢看禮品手作)調過;門檻和權重還很粗。
 - **沒有登入**;付款是模擬的。

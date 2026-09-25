@@ -36,6 +36,10 @@ export interface Persona {
   zodiac: Zodiac | null;
   traits: Trait[];
   interests: Interest[];
+  // Guessed from behaviour (a subset of traits), and guesses the shopper removed
+  // — never guessed again. See shared/infer.ts.
+  inferred?: Trait[];
+  rejected?: Trait[];
 }
 
 export const EMPTY_PERSONA: Persona = { mbti: null, zodiac: null, traits: [], interests: [] };

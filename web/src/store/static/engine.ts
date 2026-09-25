@@ -9,6 +9,7 @@
 import { CATALOG, type Product } from "../../../../shared/catalog";
 import type { ActivityItem, CartLine, DecisionEnvelope, EventType, ServerMessage, User, UserPrefs } from "../../../../shared/decision";
 import { profileFrom, recentIdsFrom, type ProfileEvent } from "../../../../shared/profile";
+import { applyInferred, behaviourSummary, BEHAVIOUR_TRIGGERS, INFER_COOLDOWN_MS, INFER_EVERY_EVENTS, inferTraitsByRules, localHour, mergeManualPrefs, MIN_EVENTS } from "../../../../shared/infer";
 import { applyChatUpdate, chatPrompt, parseChatAnswer, understandByKeywords, type ChatResult, type ChatTurn } from "../../../../shared/chat";
 import { decideWithRules } from "../../../../server/decision/rules";
 import { SEED_USERS } from "../../../../server/seed";
@@ -50,9 +51,23 @@ const log = (userId: string, type: EventType, productId: string | null) => {
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 const lastMarketRun = new Map<string, number>();
 
+// Behaviour → traits, same gating as the server; rules only (no Jev key in a page).
+const inferState = new Map<string, { at: number; events: number }>();
+function maybeInfer(userId: string, trigger: string) {
+  if (!BEHAVIOUR_TRIGGERS.has(trigger)) return;
+  const ev = events.get(userId) ?? [];
+  const last = inferState.get(userId) ?? { at: 0, events: 0 };
+  if (ev.length < MIN_EVENTS || Date.now() - last.at < INFER_COOLDOWN_MS || ev.length - last.events < INFER_EVERY_EVENTS) return;
+  inferState.set(userId, { at: Date.now(), events: ev.length });
+  const summary = behaviourSummary(ev, cartOf(userId), products(), localHour());
+  const { prefs, change } = applyInferred(users.get(userId)!.prefs, inferTraitsByRules(summary));
+  if (change.added.length || change.dropped.length) savePrefs(userId, prefs);
+}
+
 function decideNow(userId: string, trigger: string): DecisionEnvelope | undefined {
-  const user = users.get(userId);
-  if (!user) return;
+  if (!users.has(userId)) return;
+  maybeInfer(userId, trigger);
+  const user = users.get(userId)!;
   emit(userId, { type: "deciding", trigger });
   const t0 = performance.now();
   const ps = products();
@@ -153,8 +168,9 @@ export const api = {
   meta: async () => ({ claude: false }),
   users: async () => [...users.values()],
   setPrefs: async (id: string, prefs: UserPrefs) => {
-    if (!users.has(id)) throw fail(404, null);
-    const next = savePrefs(id, prefs);
+    const u = users.get(id);
+    if (!u) throw fail(404, null);
+    const next = savePrefs(id, mergeManualPrefs(u.prefs, prefs));
     request(id, "prefs", 0);
     return next;
   },
