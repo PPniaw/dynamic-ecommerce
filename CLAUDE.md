@@ -19,7 +19,9 @@ npm run typecheck
 npm run check:contrast   # 改 palettes.ts / derive.ts 之後必跑
 ```
 
-`ANTHROPIC_API_KEY` 沒設就用規則引擎(輸出格式相同)。**目前還沒有 key,Claude 那條路只對 mock 驗過。**
+決策引擎的優先順序:`TYPESAFE_API_KEY`(TypeSafe Jev)> `ANTHROPIC_API_KEY`(Claude)> 規則引擎,輸出格式都一樣。
+雲端環境已設 `TYPESAFE_API_KEY` 並允許 `api.typesafe.ai`;**Claude 那條路還沒有 key,只對 mock 驗過。**
+TypeSafe 的文件站在這個環境連不到,SDK 的 README 與型別(`node_modules/@typesafe-ai/sdk/dist/index.d.mts`)就是文件。
 環境變數用 `SHOP_CLAUDE_MODEL` / `SHOP_CLAUDE_EFFORT` —— 不要改回 `CLAUDE_*`,
 雲端環境本身就設了 `CLAUDE_EFFORT`,會蓋掉我們的值(踩過)。
 
@@ -28,7 +30,7 @@ npm run check:contrast   # 改 palettes.ts / derive.ts 之後必跑
 - `shared/` —— 前後端共用:`decision.ts`(schema v2)、`archetypes.ts`(四種店型預設 + 個性評分)、
   `personas.ts`、`catalog.ts`(24 件、6 類、Unsplash 圖)、`profile.ts`(事件 → 偏好,純函式)
 - `server/` —— Express + ws + `node:sqlite`(`data/shop-v2.db`)、市場模擬、決策排程、
-  `decision/rules.ts`(規則引擎)、`decision/claude.ts`、`decision/index.ts`(sanitize)、`decision/limits.ts`
+  `decision/rules.ts`(規則引擎)、`decision/typesafe.ts`、`decision/claude.ts`、`decision/index.ts`(sanitize)、`decision/limits.ts`
 - `web/src/ds/` —— 設計系統:token(`tokens.css`、`theme/`)、基本元件、商品卡
 - `web/src/store/` —— 商店:`sections/`、`cards/`、`pages/`,各有四種店型的變體;`copy.ts` 是所有文字
 - `web/src/store/static/engine.ts` —— 瀏覽器內的後端,給發布的預覽頁用(`VITE_STATIC=1`)
@@ -37,6 +39,9 @@ npm run check:contrast   # 改 palettes.ts / derive.ts 之後必跑
 
 - **LLM 輸出只有 enum 和商品 id**。文字全在 `web/src/store/copy.ts`,依店型換語氣。
 - **會影響正確性的東西不交給 LLM**:售完 / 特價 / 少量徽章、庫存門檻、能不能加購都由程式算。
+- **Jev 只回答單題(單選 / 是非),寫不出清單**:它選風格 enum、給每件商品「想不想看」的機率;
+  區塊和商品排序交給 `decideWithRules(input, hints)`。風格欄位刻意不綁店型、星座算正式依據(要的是變化大);
+  信心低於 `SHOP_TYPESAFE_MIN_CONFIDENCE`(預設 0.4)的欄位退回店型預設。有送禮需求時標題固定 `gift_season`。
 - **Claude 呼叫不用 SDK 的 `betaZodOutputFormat`**:它會把 enum 降成描述文字。用 `z.toJSONSchema`。
 - **顏色只從 5 個種子色推算**,`derive.ts` 會把不及格的角色色推到 WCAG AA。LLM 選 palette 和 surface,不選色碼。
 - **`text-base` 在 Tailwind 是字級,不是顏色**。要用底色當文字色寫 `text-(--bg-base)`。
@@ -66,5 +71,8 @@ PREVIEW_OUT=<dir> npx vite build --config vite.preview.config.ts                
 ## 還沒驗證 / 待辦
 
 - **Claude 實際決策**:沒有 API key,品質與延遲未知(預設 `claude-opus-5`、effort `low`、server-side fallback 開)。
+- **Jev**:實測一次請求約 0.25–0.4 秒(約 25 題風格 + 每件商品一題)。店型對四位種子顧客都對;
+  「INFP 但急著送禮比價」仍選 editorial(規則引擎也是),要不要讓需求壓過個性還沒定。
+  混搭組合(例如索引店配粉色、貼紙卡)沒有在瀏覽器裡逐一看過。
 - **商品圖**:Unsplash id 憑記憶挑的,建置環境連不到圖庫。本機跑 `/lab.html` 的「圖片」區會列出失敗的。
 - **沒有登入**;付款是模擬的。

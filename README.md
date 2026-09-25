@@ -32,12 +32,13 @@ Ken(ESTJ · 處女)、新訪客。左下角「你是誰?」可以切換,或自�
 
 ```bash
 npm install
-cp .env.example .env        # 填 ANTHROPIC_API_KEY(可不填)
+cp .env.example .env        # 填 TYPESAFE_API_KEY 或 ANTHROPIC_API_KEY(都可不填)
 export $(grep -v '^#' .env | xargs)
 npm run dev                 # http://localhost:5173
 ```
 
-API key 要從 Anthropic Console(https://console.anthropic.com → API Keys)建立。
+TypeSafe 的 key 從 https://typesafe.ai 取得;Anthropic 的 key 從 Anthropic Console(https://console.anthropic.com → API Keys)建立。
+兩個都設的話用 TypeSafe。
 
 ## 即時的部分
 

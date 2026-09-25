@@ -4,6 +4,7 @@ import type { Decision, DecisionEnvelope, Section } from "../../shared/decision.
 import { claudeEnabled, decideWithClaude } from "./claude.ts";
 import { HERO_COUNT, holdsNoProducts, MAX_SECTIONS, MIN_SECTIONS, sectionCount } from "./limits.ts";
 import { decideWithRules } from "./rules.ts";
+import { decideWithTypeSafe, typesafeEnabled } from "./typesafe.ts";
 import type { DecisionInput } from "./types.ts";
 
 export type { DecisionInput };
@@ -69,9 +70,21 @@ function dominantCategory(ids: string[], live: Map<string, Product>): Product["c
   return [...n.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
 }
 
+// Any LLM engine configured? (TypeSafe wins when both keys are set.)
+export const llmEnabled = () => typesafeEnabled() || claudeEnabled();
+
 export async function decide(input: DecisionInput): Promise<DecisionEnvelope> {
   const t0 = Date.now();
-  if (claudeEnabled()) {
+  if (typesafeEnabled()) {
+    try {
+      const d = await decideWithTypeSafe(input);
+      return { decision: sanitize(d, input.products), source: "typesafe", latencyMs: Date.now() - t0, at: Date.now(), trigger: input.trigger };
+    } catch (err) {
+      const e = err as Error & { status?: number };
+      if (e.status === 401) console.error("[decide] TypeSafe auth failed — check TYPESAFE_API_KEY");
+      else console.warn(`[decide] TypeSafe failed${e.status ? ` (${e.status})` : ""}:`, e.message);
+    }
+  } else if (claudeEnabled()) {
     try {
       const d = await decideWithClaude(input);
       return { decision: sanitize(d, input.products), source: "claude", latencyMs: Date.now() - t0, at: Date.now(), trigger: input.trigger };

@@ -8,7 +8,7 @@
 // products chosen by each section's intent.
 import { ARCHETYPE_PRESETS, pickArchetype, scoreArchetypes } from "../../shared/archetypes.ts";
 import type { Product, ShopCategory } from "../../shared/catalog.ts";
-import type { Decision, Section } from "../../shared/decision.ts";
+import type { Archetype, Decision, Section } from "../../shared/decision.ts";
 import type { Interest, Persona, Trait } from "../../shared/personas.ts";
 import { HERO_COUNT, MAX_SECTIONS, sectionCount } from "./limits.ts";
 import type { DecisionInput } from "./types.ts";
@@ -41,7 +41,17 @@ const TRAIT_TAGS: Partial<Record<Trait, string[]>> = {
 
 const personaEmpty = (p: Persona) => !p.mbti && !p.zodiac && p.traits.length === 0 && p.interests.length === 0;
 
-export function decideWithRules(input: DecisionInput): Decision {
+// What an LLM engine that can't write whole decisions (TypeSafe's Jev answers
+// one typed question at a time) hands the rule engine: the archetype, the hero
+// variant (it sets how many products the hero needs) and a per-product boost.
+// Everything else still comes from the rules below.
+export interface RuleHints {
+  archetype?: Archetype;
+  heroVariant?: Decision["hero"]["variant"];
+  productBoost?: Map<string, number>;
+}
+
+export function decideWithRules(input: DecisionInput, hints: RuleHints = {}): Decision {
   const { user, profile, products, recentIds, cartIds } = input;
   const { prefs } = user;
   const persona = prefs.persona;
@@ -56,7 +66,7 @@ export function decideWithRules(input: DecisionInput): Decision {
   // ---- archetype + preset --------------------------------------------------
   const archetype = prefs.archetype !== "auto"
     ? prefs.archetype
-    : pickArchetype(scoreArchetypes(persona, profile.dealClicks, prefs.budget != null));
+    : hints.archetype ?? pickArchetype(scoreArchetypes(persona, profile.dealClicks, prefs.budget != null));
   const preset = ARCHETYPE_PRESETS[archetype];
   const theme: Decision["theme"] = {
     ...preset.theme,
@@ -81,7 +91,7 @@ export function decideWithRules(input: DecisionInput): Decision {
     if (gift && p.tags.includes("gift")) s += 1.5;
     if (p.price > budget) s -= 4;
     if (priceSensitive && p.compareAt !== undefined) s += 1;
-    return s + Math.log1p(p.sold) * 0.2;
+    return s + Math.log1p(p.sold) * 0.2 + (hints.productBoost?.get(p.id) ?? 0);
   };
   const scores = new Map(inStock.map((p) => [p.id, score(p)]));
   const byScore = (a: Product, b: Product) => scores.get(b.id)! - scores.get(a.id)!;
@@ -144,10 +154,12 @@ export function decideWithRules(input: DecisionInput): Decision {
   }).filter((s) => sectionCount(s) === 0 || s.productIds.length > 0).slice(0, MAX_SECTIONS);
 
   // ---- hero ------------------------------------------------------------------
-  const heroN = HERO_COUNT[preset.hero.variant];
-  const heroPool = fit(preset.hero.variant === "flash" ? [...deals, ...ranked.filter((p) => p.compareAt === undefined)] : ranked);
+  const heroVariant = hints.heroVariant ?? preset.hero.variant;
+  const heroN = HERO_COUNT[heroVariant];
+  const heroPool = fit(heroVariant === "flash" ? [...deals, ...ranked.filter((p) => p.compareAt === undefined)] : ranked);
   const hero: Decision["hero"] = {
     ...preset.hero,
+    variant: heroVariant,
     headline: gift ? "gift_season" : preset.hero.headline,
     productIds: heroPool.slice(0, heroN).map((p) => p.id),
   };

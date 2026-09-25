@@ -1,7 +1,7 @@
 // Every word the shopper sees. The decision engines only emit enums; this is
 // where they become language — in each archetype's own voice. The same intent
 // reads differently in a magazine than in a spec sheet or a bargain bin.
-import type { Archetype, Decision } from "../../../shared/decision";
+import type { Archetype, Decision, DecisionSource } from "../../../shared/decision";
 import type { ShopCategory } from "../../../shared/catalog";
 
 export const STORE_NAME = "日常所";
@@ -114,6 +114,10 @@ export const SIGNAL_LABEL: Record<Decision["signals"][number], string> = {
   cart_intent: "購物車意圖", stock_urgency: "庫存急迫", price_drop: "有降價", explicit_need: "明確需求",
   gift_intent: "送禮需求", budget_cap: "有預算上限", night_owl: "夜貓子",
 };
+
+// Which engine made the decision: long form in the panel, short on the pill.
+export const SOURCE_LABEL: Record<DecisionSource, string> = { typesafe: " TypeSafe Jev ", claude: " Claude ", rules: "規則引擎" };
+export const SOURCE_SHORT: Record<DecisionSource, string> = { typesafe: "Jev", claude: "Claude", rules: "規則" };
 
 export const TRIGGER_LABEL: Record<string, string> = {
   open: "開啟頁面", view: "瀏覽商品", favorite: "收藏", search: "搜尋", add_to_cart: "加入購物車",
