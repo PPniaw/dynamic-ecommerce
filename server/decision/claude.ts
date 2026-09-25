@@ -7,6 +7,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod/v4";
 import { ARCHETYPE_PRESETS } from "../../shared/archetypes.ts";
 import { DecisionSchema, type Decision } from "../../shared/decision.ts";
+import { chatPrompt, parseChatAnswer, type ChatContext, type ChatTurn } from "../../shared/chat.ts";
 import type { DecisionInput } from "./types.ts";
 
 const MODEL = process.env.SHOP_CLAUDE_MODEL ?? "claude-opus-5";
@@ -95,4 +96,19 @@ export async function decideWithClaude(input: DecisionInput): Promise<Decision> 
   const parsed = DecisionSchema.safeParse(JSON.parse(text.text));
   if (!parsed.success) throw new ClaudeDecisionError(`schema: ${parsed.error.message}`);
   return parsed.data;
+}
+
+// ---- chat: read the message and reply in one call ----------------------------
+// Same prompt as the published preview's `sample` path (shared/chat.ts), so
+// both behave alike. The reply is short, so this stays on the fast settings.
+export async function chatWithClaude(ctx: ChatContext, history: ChatTurn[], text: string) {
+  const res = await client.messages.create({
+    model: MODEL,
+    max_tokens: 1500,
+    output_config: { effort: "low" },
+    messages: [{ role: "user", content: chatPrompt(ctx, history, text) }],
+  });
+  const out = res.content.find((b) => b.type === "text")?.text ?? "";
+  const json = out.slice(out.indexOf("{"), out.lastIndexOf("}") + 1);
+  return parseChatAnswer(JSON.parse(json || "{}"));
 }

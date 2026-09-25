@@ -18,8 +18,10 @@
 // (confidence < MIN_CONFIDENCE) falls back to the archetype's preset.
 import { choice, noul, TypeSafeClient, type ChoiceQuestion, type JsonValue, type Questions } from "@typesafe-ai/sdk";
 import { ARCHETYPE_PRESETS } from "../../shared/archetypes.ts";
+import { SHOP_CATEGORIES, type ShopCategory } from "../../shared/catalog.ts";
+import { understandByKeywords, type ChatContext, type ChatTurn, type ChatUpdate } from "../../shared/chat.ts";
 import type { Decision } from "../../shared/decision.ts";
-import { ZODIAC_ELEMENT } from "../../shared/personas.ts";
+import { INTERESTS, TRAITS, ZODIAC_ELEMENT, type Interest, type Trait } from "../../shared/personas.ts";
 import { decideWithRules } from "./rules.ts";
 import type { DecisionInput } from "./types.ts";
 
@@ -270,5 +272,79 @@ export async function decideWithTypeSafe(input: DecisionInput): Promise<Decision
     },
     listing: { layout: or(pick("listingLayout"), preset.listing.layout), filters: or(pick("filters"), preset.listing.filters) },
     product: { gallery: or(pick("gallery"), preset.product.gallery), info: or(pick("productInfo"), preset.product.info) },
+  };
+}
+
+// ---- chat: what the shopper just said → ChatUpdate ---------------------------
+//
+// Jev reads; it can't reply (the frontend answers from copy.ts, or Claude does
+// when ANTHROPIC_API_KEY is set). Budget, MBTI and zodiac are literal in the
+// text, so the keyword reader takes those; Jev takes everything that needs judgement.
+
+const YES = 0.7;
+
+// Jev reads the bare Chinese labels poorly (「累、想放鬆」→ 慢活 0.33); with a
+// gloss it's 0.92. Same for categories: name what's in them.
+const TRAIT_GLOSS: Record<Trait, string> = {
+  內向: "introverted, prefers quiet", 外向: "extroverted, social", 感性: "sentimental, emotional", 理性: "rational, analytical",
+  慢活: "slow-living: wants to relax, unwind, take it slow", 衝動: "impulsive", 好奇: "curious: wants something new or surprising",
+  務實: "practical: cares about usefulness and durability", 比價: "price-conscious: compares prices, wants cheap or discounted",
+  念舊: "nostalgic, likes vintage", 愛冒險: "adventurous, outdoorsy", 夜貓子: "a night owl: up or shopping late at night",
+  重設計: "design-minded, cares about aesthetics", 愛送禮: "a gift giver",
+};
+const INTEREST_GLOSS: Record<Interest, string> = {
+  閱讀: "reading", 手沖咖啡: "pour-over coffee", 茶: "tea", 陶藝: "ceramics", 香氛: "scent, candles", 植物: "plants",
+  露營: "camping", 攝影: "photography", 音樂祭: "music festivals", 鋼筆: "fountain pens", 手帳: "planners, journaling",
+  設計: "design", 烹飪: "cooking", 通勤: "commuting", 送禮: "giving gifts",
+};
+const CATEGORY_GLOSS: Record<ShopCategory, string> = {
+  table: "tableware: cups, plates, boards, carafes", brew: "coffee & tea: beans, tea leaves, brewing gear",
+  scent: "scent & care: candles, essential oils, hand cream", paper: "paper goods: notebooks, fountain pens, postcards",
+  home: "home: vases, plants, lamps, textiles", carry: "everyday carry: bags, card holders, glasses, insulated bottles",
+};
+
+export async function understandWithTypeSafe(ctx: ChatContext, history: ChatTurn[], text: string): Promise<ChatUpdate> {
+  const questions: Questions = {
+    need: noul("Does the latest message state a concrete shopping need (something to find, buy or give)?"),
+    scheme: choice("Does the shopper ask for a lighter or darker page?", {
+      keep: "No, or not mentioned.", light: "Wants it lighter / brighter.", dark: "Wants it darker, or says it's too bright / it's late at night.",
+    }),
+    archetype: choice("Does the latest message ask for a different way of shopping than the current store?", {
+      keep: "No clear request; keep the current store.",
+      editorial: "Wants to slow down, read stories, browse beautiful things.",
+      collage: "Wants fun, surprises, something new and playful.",
+      index: "Wants to compare specs, details and facts.",
+      deal: "Wants the cheapest, deals, quick and practical.",
+    }),
+  };
+  for (const t of TRAITS) questions[`trait_${t}`] = noul(`Does the latest message suggest the shopper is ${TRAIT_GLOSS[t]}?`);
+  for (const i of INTERESTS) questions[`interest_${i}`] = noul(`Does the latest message show an interest in ${INTEREST_GLOSS[i]}?`);
+  for (const c of SHOP_CATEGORIES) questions[`cat_${c}`] = noul(`Is the latest message asking for products in this category: ${CATEGORY_GLOSS[c]}?`);
+
+  const res = await getClient().systemOne({
+    state: {
+      latest_message: text,
+      conversation: history.slice(-6).map((t) => `${t.role}: ${t.text}`),
+      current_store: ctx.archetype,
+      shopper: { ...ctx.prefs, persona: { ...ctx.prefs.persona } },
+      recently_engaged: ctx.recent,
+      cart: ctx.cart,
+    },
+    questions,
+  });
+  const a = res.answers;
+  const yes = (k: string) => { const r = a[k]; return r?.type === "noul" && r.noul >= YES; };
+  const sure = (k: string) => { const r = a[k]; return r?.type === "choice" && r.confidence >= 0.6 ? r.choice : "keep"; };
+  const kw = understandByKeywords(text);
+  return {
+    traitsAdd: TRAITS.filter((t) => yes(`trait_${t}`)),
+    interestsAdd: INTERESTS.filter((i) => yes(`interest_${i}`)),
+    categories: SHOP_CATEGORIES.filter((c) => yes(`cat_${c}`)),
+    budget: kw.budget,
+    need: yes("need") ? text.slice(0, 60) : "",
+    scheme: sure("scheme") as ChatUpdate["scheme"],
+    archetype: sure("archetype") as ChatUpdate["archetype"],
+    mbti: kw.mbti,
+    zodiac: kw.zodiac,
   };
 }

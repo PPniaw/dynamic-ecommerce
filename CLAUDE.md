@@ -1,6 +1,6 @@
 # dynamic-ecommerce(日常所)
 
-會依顧客個性改變的電商 demo。**LLM 只做決策,不寫文字**:它讀顧客的個性(MBTI、星座、
+會依顧客個性、行為和聊天內容改變的電商 demo。**LLM 只做決策,不寫文字**(唯一例外是聊天的回話,見下):它讀顧客的個性(MBTI、星座、
 個性標籤、興趣)、需求、行為與即時庫存,先選四種店型之一(雜誌 editorial / 拼貼 collage /
 索引 index / 特賣 deal),再決定主題、標頭、首屏、區塊、卡片、分類頁與商品頁的版型。
 
@@ -27,12 +27,12 @@ TypeSafe 的文件站在這個環境連不到,SDK 的 README 與型別(`node_mod
 
 ## 結構
 
-- `shared/` —— 前後端共用:`decision.ts`(schema v2)、`archetypes.ts`(四種店型預設 + 個性評分)、
+- `shared/` —— 前後端共用:`chat.ts`(對話 → 偏好更新、關鍵字讀法、Claude prompt)、`decision.ts`(schema v2)、`archetypes.ts`(四種店型預設 + 個性評分)、
   `personas.ts`、`catalog.ts`(24 件、6 類、Unsplash 圖)、`profile.ts`(事件 → 偏好,純函式)
 - `server/` —— Express + ws + `node:sqlite`(`data/shop-v2.db`)、市場模擬、決策排程、
   `decision/rules.ts`(規則引擎)、`decision/typesafe.ts`、`decision/claude.ts`、`decision/index.ts`(sanitize)、`decision/limits.ts`
 - `web/src/ds/` —— 設計系統:token(`tokens.css`、`theme/`)、基本元件、商品卡
-- `web/src/store/` —— 商店:`sections/`、`cards/`、`pages/`,各有四種店型的變體;`copy.ts` 是所有文字
+- `web/src/store/` —— 商店:`sections/`、`cards/`、`pages/`,各有四種店型的變體;`copy.ts` 是所有文字;`ChatDock.tsx` 是聊天
 - `web/src/store/static/engine.ts` —— 瀏覽器內的後端,給發布的預覽頁用(`VITE_STATIC=1`)
 
 ## 紀律(每一條都有原因,別隨手改回去)
@@ -42,6 +42,10 @@ TypeSafe 的文件站在這個環境連不到,SDK 的 README 與型別(`node_mod
 - **Jev 只回答單題(單選 / 是非),寫不出清單**:它選風格 enum、給每件商品「想不想看」的機率;
   區塊和商品排序交給 `decideWithRules(input, hints)`。風格欄位刻意不綁店型、星座算正式依據(要的是變化大);
   信心低於 `SHOP_TYPESAFE_MIN_CONFIDENCE`(預設 0.4)的欄位退回店型預設。有送禮需求時標題固定 `gift_season`。
+- **聊天**:顧客的話先變成 `ChatUpdate`(只有 enum、預算數字、一句需求),寫進 prefs,店面**立刻**重排
+  (trigger `chat`,和 `prefs` 一樣不等換頁)。讀法:Claude(server 有 key,或預覽頁的 `sample`)> Jev > 關鍵字。
+  **回話是唯一讓 LLM 寫給顧客看的文字**:prompt 禁止提價格、折扣、庫存;價格和庫存由回話下的商品卡從即時資料顯示。
+  沒有 AI 回話時(`reply: null`)前端用 `copy.ts` 的 `CHAT_COPY` 依店型回。
 - **Claude 呼叫不用 SDK 的 `betaZodOutputFormat`**:它會把 enum 降成描述文字。用 `z.toJSONSchema`。
 - **顏色只從 5 個種子色推算**,`derive.ts` 會把不及格的角色色推到 WCAG AA。LLM 選 palette 和 surface,不選色碼。
 - **`text-base` 在 Tailwind 是字級,不是顏色**。要用底色當文字色寫 `text-(--bg-base)`。
@@ -64,7 +68,9 @@ PREVIEW_ENTRY=web/store-preview.html PREVIEW_OUT=<dir> npx vite build --config v
 PREVIEW_OUT=<dir> npx vite build --config vite.preview.config.ts                                       # /lab
 ```
 
-再把產出的 css / js 內嵌成單一 HTML(加 Google Fonts `<link>`)發布。已發布:
+再把產出的 css / js 內嵌成單一 HTML(加 Google Fonts `<link>`)發布。
+商店預覽頁宣告了 `sample` capability:聊天用**觀看者自己的 claude.ai 訂閱**呼叫 Claude(不用 API key,第一次會問同意);
+重新發布時不帶 `capabilities` 會沿用,帶了就要包含 `{"sample": {}}`。本機或非 claude.ai 環境 `sample` 不存在,自動改用關鍵字。已發布:
 - 商店:https://claude.ai/artifact/9k4dAKmMaEgZ4DEsrdAqY9
 - 設計實驗室:https://claude.ai/artifact/PbyncmSsLXgcNqGYpBUiP8
 
@@ -75,4 +81,6 @@ PREVIEW_OUT=<dir> npx vite build --config vite.preview.config.ts                
   「INFP 但急著送禮比價」仍選 editorial(規則引擎也是),要不要讓需求壓過個性還沒定。
   混搭組合(例如索引店配粉色、貼紙卡)沒有在瀏覽器裡逐一看過。
 - **商品圖**:Unsplash id 憑記憶挑的,建置環境連不到圖庫。本機跑 `/lab.html` 的「圖片」區會列出失敗的。
+- **聊天**:預覽頁的 Claude 路徑只用假的 `sample` 在 Playwright 驗過資料流;真的在 claude.ai 上的回話品質與延遲還沒看。
+  server 的 Claude 聊天路徑沒有 key,沒跑過。行為目前只影響偏好,**不會回推個性標籤**(可以之後讓 Jev 做)。
 - **沒有登入**;付款是模擬的。

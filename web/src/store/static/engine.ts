@@ -9,6 +9,7 @@
 import { CATALOG, type Product } from "../../../../shared/catalog";
 import type { ActivityItem, CartLine, DecisionEnvelope, EventType, ServerMessage, User, UserPrefs } from "../../../../shared/decision";
 import { profileFrom, recentIdsFrom, type ProfileEvent } from "../../../../shared/profile";
+import { applyChatUpdate, chatPrompt, parseChatAnswer, understandByKeywords, type ChatResult, type ChatTurn } from "../../../../shared/chat";
 import { decideWithRules } from "../../../../server/decision/rules";
 import { SEED_USERS } from "../../../../server/seed";
 import type { Order } from "../api";
@@ -49,7 +50,7 @@ const log = (userId: string, type: EventType, productId: string | null) => {
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 const lastMarketRun = new Map<string, number>();
 
-function decideNow(userId: string, trigger: string) {
+function decideNow(userId: string, trigger: string): DecisionEnvelope | undefined {
   const user = users.get(userId);
   if (!user) return;
   emit(userId, { type: "deciding", trigger });
@@ -68,6 +69,29 @@ function decideNow(userId: string, trigger: string) {
   latest.set(userId, env);
   // A short beat so "正在重新安排" is visible, as it is with a real server.
   setTimeout(() => emit(userId, { type: "decision", envelope: env }), 350);
+  return env;
+}
+
+// ---- chat: Claude through the artifact's `sample` capability -----------------
+//
+// On claude.ai the published page can ask Claude on the *viewer's own*
+// subscription (no API key; the first call asks them to allow it). Anywhere
+// else `use("sample")` is null or missing and the keyword reader takes over.
+
+interface Sample { json: (input: string, opts?: { modelTier?: "quick" | "default" | "complex"; cache?: boolean }) => Promise<unknown> }
+let sampleP: Promise<Sample | null> | undefined;
+const getSample = () => (sampleP ??= (async () => {
+  const c = (globalThis as { claude?: { use?: (n: string) => Promise<unknown> } }).claude;
+  return c?.use ? ((await c.use("sample")) as Sample | null) : null;
+})().catch(() => null));
+
+function savePrefs(id: string, prefs: UserPrefs) {
+  const u = users.get(id)!;
+  const next = { ...u, prefs };
+  users.set(id, next);
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify(Object.fromEntries([...users].map(([k, v]) => [k, v.prefs])))); } catch { /* ignore */ }
+  emit(id, { type: "user", user: next });
+  return next;
 }
 
 function request(userId: string, trigger: string, delay = 900) {
@@ -129,14 +153,41 @@ export const api = {
   meta: async () => ({ claude: false }),
   users: async () => [...users.values()],
   setPrefs: async (id: string, prefs: UserPrefs) => {
-    const u = users.get(id);
-    if (!u) throw fail(404, null);
-    const next = { ...u, prefs };
-    users.set(id, next);
-    try { localStorage.setItem(PREFS_KEY, JSON.stringify(Object.fromEntries([...users].map(([k, v]) => [k, v.prefs])))); } catch { /* ignore */ }
-    emit(id, { type: "user", user: next });
+    if (!users.has(id)) throw fail(404, null);
+    const next = savePrefs(id, prefs);
     request(id, "prefs", 0);
     return next;
+  },
+  chat: async (id: string, text: string, history: ChatTurn[]): Promise<ChatResult> => {
+    const user = users.get(id);
+    if (!user) throw fail(404, null);
+    const ev = events.get(id) ?? [];
+    const cart = cartOf(id);
+    const ps = products();
+    const name = (pid: string) => rows.get(pid)?.p.name;
+    const ctx = {
+      prefs: user.prefs,
+      profile: profileFrom(ev, cart, ps),
+      recent: recentIdsFrom(ev).map(name).filter((n): n is string => !!n),
+      cart: cart.map((l) => name(l.productId)).filter((n): n is string => !!n),
+      archetype: latest.get(id)?.decision.archetype ?? "editorial",
+    };
+    let understood: ReturnType<typeof parseChatAnswer> | undefined;
+    let by: ChatResult["understoodBy"] = "rules";
+    const sample = await getSample();
+    if (sample) {
+      try {
+        understood = parseChatAnswer(await sample.json(chatPrompt(ctx, history, text), { modelTier: "quick", cache: false }));
+        by = "claude";
+      } catch { /* declined, rate limited, bad JSON → keywords */ }
+    }
+    understood ??= { update: understandByKeywords(text), reply: null };
+    const { prefs, changes } = applyChatUpdate(user.prefs, understood.update);
+    if (changes.length) savePrefs(id, prefs);
+    clearTimeout(timers.get(id));
+    const d = decideNow(id, "chat")?.decision;
+    const productIds = d ? [...new Set([...d.hero.productIds, ...d.sections.flatMap((s) => s.productIds)])].slice(0, 3) : [];
+    return { reply: understood.reply, understoodBy: by, changes, productIds };
   },
   profile: async (id: string) => profileFrom(events.get(id) ?? [], cartOf(id), products()),
   event: async (userId: string, type: "view" | "favorite" | "search", productId?: string) => {

@@ -5,7 +5,7 @@
 // Decision timing is a UX rule (design-spec §6, §10): a re-decision caused by
 // browsing does NOT rearrange the page you're reading — it waits and applies
 // on your next navigation (or when you tap "套用"). Only changes you asked for
-// (switching shopper, editing your profile) apply at once, with a view
+// (switching shopper, editing your profile, telling the chat) apply at once, with a view
 // transition so the store visibly morphs instead of snapping.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
@@ -18,7 +18,7 @@ const readUser = () => { try { return localStorage.getItem(USER_KEY) ?? undefine
 const writeUser = (id: string) => { try { localStorage.setItem(USER_KEY, id); } catch { /* private mode */ } };
 
 // Triggers the shopper asked for — these may rearrange the current page.
-const IMMEDIATE = new Set(["open", "prefs"]);
+const IMMEDIATE = new Set(["open", "prefs", "chat"]);
 
 export function withTransition(update: () => void) {
   const doc = document as Document & { startViewTransition?: (cb: () => void) => { skipTransition?: () => void } };

@@ -3,6 +3,7 @@
 // reads differently in a magazine than in a spec sheet or a bargain bin.
 import type { Archetype, Decision, DecisionSource } from "../../../shared/decision";
 import type { ShopCategory } from "../../../shared/catalog";
+import type { ChatChange } from "../../../shared/chat";
 
 export const STORE_NAME = "日常所";
 export const STORE_NAME_EN = "Everyday Supply";
@@ -126,3 +127,60 @@ export const TRIGGER_LABEL: Record<string, string> = {
 };
 
 export const FREE_SHIPPING = 1500;
+
+// ---- chat -------------------------------------------------------------------
+// The chat's own words, per store voice. When an AI reply is available it is
+// shown instead of `reply`; the change chips and product cards are always ours.
+
+export const CHAT_COPY: Record<Archetype, {
+  title: string; placeholder: string; greeting: string; suggestions: string[];
+  reply: (changed: boolean) => string;
+}> = {
+  editorial: {
+    title: "和店員聊聊", placeholder: "說說你最近的日子,或想找什麼⋯",
+    greeting: "午安。最近過得如何?告訴我你的近況或想找的東西,我替你重新佈置這家店。",
+    suggestions: ["最近好累,想要放鬆的東西", "想找有故事的手作器皿", "晚上看書時用的"],
+    reply: (c) => (c ? "明白了。我照你說的,把店裡慢慢重新擺過一遍。" : "我聽著。多說一點,我再替你調整。"),
+  },
+  collage: {
+    title: "聊天!", placeholder: "今天想玩什麼?",
+    greeting: "嗨!想要什麼驚喜?跟我說,店面馬上變給你看!",
+    suggestions: ["週末要去露營!", "給我一點沒看過的東西", "想送朋友生日禮物,1000 以內"],
+    reply: (c) => (c ? "收到!店面已經幫你大改造了,往下看看!" : "嗯嗯,再多講一點,我來變點新花樣!"),
+  },
+  index: {
+    title: "查詢", placeholder: "輸入需求、預算或偏好",
+    greeting: "請描述需求、預算或偏好。系統會依條件重新排序。",
+    suggestions: ["預算 800 以內的文具", "想比較幾款保溫杯", "我是 INTJ"],
+    reply: (c) => (c ? "已依條件更新排序。" : "未偵測到新條件。可補充預算、分類或用途。"),
+  },
+  deal: {
+    title: "問店員", placeholder: "要買什麼?預算多少?",
+    greeting: "要找什麼?講預算,我幫你挑最划算的。",
+    suggestions: ["500 以內送同事的禮物", "有什麼在特價?", "要快,明天就要用"],
+    reply: (c) => (c ? "好,照你的條件排好了,划算的在前面。" : "講一下預算或用途,我幫你篩。"),
+  },
+};
+
+export const CHAT_UI = {
+  thinking: "正在想⋯",
+  failed: "剛剛沒接上,再說一次好嗎?",
+  aiNote: { claude: "Claude 讀懂並回覆", typesafe: "Jev 讀懂", rules: "關鍵字判斷" } as const,
+  open: "聊天",
+  close: "關閉聊天",
+  send: "送出",
+};
+
+export function changeLabel(c: ChatChange): string {
+  switch (c.kind) {
+    case "trait": return `個性 +${c.value}`;
+    case "interest": return `興趣 +${c.value}`;
+    case "category": return `想看 ${CATEGORY_COPY[c.value].label}`;
+    case "budget": return c.value === null ? "不限預算" : `預算 ${c.value} 元`;
+    case "need": return `需求:${c.value}`;
+    case "scheme": return c.value === "dark" ? "換成暗色" : "換成亮色";
+    case "archetype": return c.value === "auto" ? "店型交給 AI" : `換成${ARCHETYPE_LABEL[c.value].name}店`;
+    case "mbti": return `MBTI ${c.value}`;
+    case "zodiac": return `${c.value}座`;
+  }
+}

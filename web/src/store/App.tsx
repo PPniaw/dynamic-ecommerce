@@ -5,6 +5,7 @@ import { deriveVars } from "../ds/theme/derive";
 import { DEFAULT_THEME, ThemeScope } from "../ds/theme/ThemeScope";
 import { Skeleton } from "../ds/ui/Skeleton";
 import { CartDrawer } from "./CartDrawer";
+import { ChatDock } from "./ChatDock";
 import { DecisionPeek } from "./DecisionPeek";
 import { CategoryPage, NotFound } from "./pages/CategoryPage";
 import { Home } from "./pages/Home";
@@ -58,6 +59,7 @@ function Shell() {
         <Footer archetype={d.archetype} />
         <CartDrawer />
         <PersonaDock />
+        <ChatDock />
         <DecisionPeek />
       </div>
     </ThemeScope>

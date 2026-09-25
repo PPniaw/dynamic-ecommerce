@@ -10,9 +10,10 @@ import {
   checkout, CheckoutError, createUser, getCart, getProduct, getUser, listOrders, listPrices,
   listProducts, listUsers, logEvent, saveDecision, setCartQty, setPrefs, updateProduct,
 } from "./db.ts";
-import { claudeEnabled } from "./decision/claude.ts";
+import { applyChatUpdate, understandByKeywords, type ChatContext, type ChatResult, type ChatTurn, type ChatUpdate } from "../shared/chat.ts";
+import { chatWithClaude, claudeEnabled } from "./decision/claude.ts";
 import { decide, decideWithRules, llmEnabled, sanitize, type DecisionInput } from "./decision/index.ts";
-import { typesafeEnabled } from "./decision/typesafe.ts";
+import { typesafeEnabled, understandWithTypeSafe } from "./decision/typesafe.ts";
 import { buildProfile, recentProductIds } from "./profile.ts";
 
 const PORT = Number(process.env.PORT ?? 8787);
@@ -61,8 +62,9 @@ function requestDecision(userId: string, trigger: string, delay = DEBOUNCE_MS) {
   s.timer = setTimeout(() => void run(userId, trigger), delay);
 }
 
-async function run(userId: string, trigger: string) {
-  const s = sched.get(userId)!;
+async function run(userId: string, trigger: string): Promise<DecisionEnvelope | undefined> {
+  const s = sched.get(userId) ?? { inFlight: false, lastMarketRun: 0 };
+  sched.set(userId, s);
   const input = buildInput(userId, trigger);
   if (!input) return;
   s.inFlight = true;
@@ -73,6 +75,7 @@ async function run(userId: string, trigger: string) {
     saveDecision(userId, env.source, trigger, env.latencyMs, env.decision);
     toUser(userId, { type: "decision", envelope: env });
     console.log(`[decide] ${userId} ${trigger} → ${env.source} ${env.latencyMs}ms`);
+    return env;
   } finally {
     s.inFlight = false;
     if (s.pending) {
@@ -187,6 +190,52 @@ app.put("/api/users/:id/prefs", (req, res) => {
   toUser(user.id, { type: "user", user: updated });
   requestDecision(user.id, "prefs", 0);
   res.json(updated);
+});
+
+// Chat: read what the shopper said (Claude > Jev > keywords), write it into
+// their prefs, re-decide right away (they asked, so it may rearrange the page),
+// and answer with the top of the new store. `reply: null` = the frontend
+// answers from copy.ts.
+app.post("/api/users/:id/chat", async (req, res) => {
+  const user = getUser(req.params.id);
+  const text = String(req.body?.text ?? "").trim().slice(0, 500);
+  if (!user || !text) { res.status(400).end(); return; }
+  const history: ChatTurn[] = (Array.isArray(req.body?.history) ? req.body.history : [])
+    .filter((t: ChatTurn) => (t?.role === "user" || t?.role === "assistant") && typeof t.text === "string")
+    .slice(-6).map((t: ChatTurn) => ({ role: t.role, text: t.text.slice(0, 500) }));
+
+  const products = listProducts();
+  const names = (ids: string[]) => ids.map((id) => getProduct(id)?.name).filter((n): n is string => !!n);
+  const ctx: ChatContext = {
+    prefs: user.prefs,
+    profile: buildProfile(user.id, products),
+    recent: names(recentProductIds(user.id)),
+    cart: names(getCart(user.id).map((l) => l.productId)),
+    archetype: latest.get(user.id)?.decision.archetype ?? "editorial",
+  };
+
+  let understood: { update: ChatUpdate; reply: string | null } | undefined;
+  let by: ChatResult["understoodBy"] = "rules";
+  try {
+    if (claudeEnabled()) { understood = await chatWithClaude(ctx, history, text); by = "claude"; }
+    else if (typesafeEnabled()) { understood = { update: await understandWithTypeSafe(ctx, history, text), reply: null }; by = "typesafe"; }
+  } catch (err) {
+    console.warn("[chat] AI failed, using keywords:", (err as Error).message);
+    by = "rules";
+  }
+  understood ??= { update: understandByKeywords(text), reply: null };
+
+  const { prefs, changes } = applyChatUpdate(user.prefs, understood.update);
+  if (changes.length) {
+    setPrefs(user.id, prefs);
+    toUser(user.id, { type: "user", user: { ...user, prefs } });
+  }
+  const env = (await run(user.id, "chat")) ?? latest.get(user.id);
+  const d = env?.decision;
+  const productIds = d ? [...new Set([...d.hero.productIds, ...d.sections.flatMap((s) => s.productIds)])].slice(0, 3) : [];
+  const out: ChatResult = { reply: understood.reply, understoodBy: by, changes, productIds };
+  console.log(`[chat] ${user.id} "${text.slice(0, 30)}" → ${by}, ${changes.length} changes`);
+  res.json(out);
 });
 
 app.get("/api/users/:id/profile", (req, res) => {
