@@ -5,12 +5,13 @@
 // Decision timing is a UX rule (design-spec §6, §10): a re-decision caused by
 // browsing does NOT rearrange the page you're reading — it waits and applies
 // on your next navigation (or when you tap "套用"). Only changes you asked for
-// (switching shopper, editing your profile, telling the chat) apply at once, with a view
-// transition so the store visibly morphs instead of snapping.
+// (switching shopper, editing your profile, telling the chat) apply at once, through
+// the particle morph so the store visibly reassembles instead of snapping.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import type { Product } from "../../../shared/catalog";
 import type { ActivityItem, CartLine, DecisionEnvelope, ServerMessage, User, UserPrefs } from "../../../shared/decision";
+import { particleMorph } from "../ds/fx/particleMorph";
 import { api, openChannel } from "./backend";
 
 const USER_KEY = "llm-shop:user";
@@ -20,18 +21,12 @@ const writeUser = (id: string) => { try { localStorage.setItem(USER_KEY, id); } 
 // Triggers the shopper asked for — these may rearrange the current page.
 const IMMEDIATE = new Set(["open", "prefs", "chat"]);
 
+// Every storefront change goes through the particle morph (ds/fx): the old
+// page breaks into particles that fly to where the new page's text, images
+// and blocks are. The update itself is applied immediately with flushSync;
+// the animation is only an overlay, so the store never waits on it.
 export function withTransition(update: () => void) {
-  const doc = document as Document & { startViewTransition?: (cb: () => void) => { skipTransition?: () => void } };
-  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  if (!doc.startViewTransition || reduce) { update(); return; }
-  // The browser may hold the update callback until it can capture the old
-  // frame — seen stalling to its 4s timeout. The store must never wait on an
-  // animation: if the callback hasn't run within 300ms, skip the transition
-  // and apply the change directly (the guard makes the late callback a no-op).
-  let done = false;
-  const run = () => { if (!done) { done = true; flushSync(update); } };
-  const vt = doc.startViewTransition(run);
-  setTimeout(() => { if (!done) { vt.skipTransition?.(); run(); } }, 300);
+  particleMorph(() => flushSync(update));
 }
 
 interface Store {

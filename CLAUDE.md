@@ -51,7 +51,10 @@ TypeSafe 的文件站在這個環境連不到,SDK 的 README 與型別(`node_mod
 - **`text-base` 在 Tailwind 是字級,不是顏色**。要用底色當文字色寫 `text-(--bg-base)`。
 - **中文字型 import 字重檔**(`@fontsource/.../400.css`),不是 `chinese-traditional-*.css`(只有一小段字)。
 - **版面不打斷正在看的頁面**:瀏覽觸發的重新決策等換頁才套用;改資料 / 換顧客才立刻套用。
-- **View transition 有 300ms 保險**(`StoreContext.tsx` 的 `withTransition`):Chromium 曾把更新卡到 4 秒。
+- **換版一律用粒子重組**(`web/src/ds/fx/particleMorph.ts`,`withTransition` 呼叫它):讀 `[data-morph]` 裡的文字、圖片、
+  色塊變成粒子,舊頁淡出 180ms 後**一定**套用更新,粒子飛到新位置、新頁淡入,約 1.25 秒。通用、不綁任何元件;
+  動畫只是覆蓋層,有保險 timeout,頁面不會卡在隱藏。已不用 View Transition(Chromium 曾把更新卡到 4 秒)。
+  `prefers-reduced-motion` 時直接換。
 - **`static/engine.ts` 是 server 的鏡像,不是分支**:改 server 的排程、市場模擬或 API 形狀時同步改它。
   決策直接 import `server/decision/rules.ts`,偏好直接用 `shared/profile.ts`。
 - **Section 的 React key 用 `kind-intent`**,不要用 index 或時間戳(會整段重新 mount)。

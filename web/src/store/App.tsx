@@ -46,8 +46,8 @@ function Shell() {
   return (
     <ThemeScope theme={d.theme} className="flex min-h-screen flex-col overflow-x-clip">
       <div data-archetype={d.archetype} className="contents">
-        <div style={{ viewTransitionName: "header" }}><Header header={d.header} /></div>
-        <main className="grow pb-24">
+        <div data-morph><Header header={d.header} /></div>
+        <main data-morph className="grow pb-24">
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/c/:category" element={<CategoryPage />} />

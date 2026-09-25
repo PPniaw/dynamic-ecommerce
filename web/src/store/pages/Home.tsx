@@ -40,7 +40,7 @@ export function Home() {
 
   return (
     <>
-      <div style={{ viewTransitionName: "hero" }}>
+      <div>
         <Hero hero={d.hero} products={pick(products, d.hero.productIds)} />
       </div>
       {/* The flash hero is its own coloured band; the next section butts against it. */}
@@ -54,7 +54,7 @@ export function Home() {
           const pad = slim ? "py-5" : s.surface === "page" ? "py-[calc(var(--section-gap)/2)]" : "py-[calc(var(--section-gap)/1.6)]";
           return (
             <Surface key={keys[i]} surface={s.surface} className={cn(pad, "animate-rise-in")}>
-              <div id={`s${i}`} className={cn(!slim && "page")} style={{ viewTransitionName: `sec-${keys[i]}` }}>
+              <div id={`s${i}`} className={cn(!slim && "page")}>
                 {!slim && s.kind !== "promo" && <SectionHead archetype={d.archetype} title={heading} sub={sub} />}
                 {s.kind === "rail" && <Rail layout={s.layout} products={items} card={d.card} highlights={hl} />}
                 {s.kind === "story" && <Story products={items} />}
