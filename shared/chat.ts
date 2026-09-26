@@ -123,6 +123,21 @@ const CATEGORY_WORDS: Record<ShopCategory, RegExp> = {
   paper: /筆記|文具|紙|鋼筆|明信片/, home: /居家|擺設|花器|燈|植物|布/, carry: /包|隨身|保溫|眼鏡|露營/,
 };
 
+// Asking for a look by name ("雜誌風一點", "要特賣那種"). Explicit, so it
+// wins over the AI's judgement too (see server/decision/typesafe.ts).
+const ARCHETYPE_WORDS: [Archetype, RegExp][] = [
+  ["editorial", /雜誌|文青|文藝|故事感|質感一點|慢慢看|editorial/i],
+  ["collage", /拼貼|貼紙|好玩一點|可愛一點|活潑|繽紛|collage/i],
+  ["index", /索引|規格|表格|清楚一點|簡潔|條列|比較表|index/i],
+  ["deal", /特賣|特價|便宜|划算|折扣|優惠|deal/i],
+];
+export function namedArchetype(text: string): Archetype | undefined {
+  return ARCHETYPE_WORDS.find(([, re]) => re.test(text))?.[0];
+}
+const SCHEME_WORDS = { dark: /暗色|深色|暗一點|黑色模式|夜間模式|太亮/, light: /亮色|淺色|亮一點|白色|太暗/ };
+export const namedScheme = (text: string): "light" | "dark" | undefined =>
+  SCHEME_WORDS.dark.test(text) ? "dark" : SCHEME_WORDS.light.test(text) ? "light" : undefined;
+
 export function parseBudget(text: string): ChatUpdate["budget"] {
   if (/不限預算|預算不限|不管價錢|多少錢都/.test(text)) return "none";
   const m = text.match(/(\d{2,6})\s*(?:元|塊|NT)?\s*(?:以內|以下|內|左右|上下|預算)/) ?? text.match(/預算\s*(\d{2,6})/);
@@ -141,8 +156,8 @@ export function understandByKeywords(text: string): ChatUpdate {
     categories: pickAll(CATEGORY_WORDS),
     budget: parseBudget(text),
     need: /找|想要|需要|送|買/.test(text) ? text.slice(0, 60) : "",
-    scheme: /暗色|深色|黑色模式|太亮/.test(text) ? "dark" : /亮色|淺色|太暗/.test(text) ? "light" : "keep",
-    archetype: /特賣|便宜|折扣/.test(text) ? "deal" : "keep",
+    scheme: SCHEME_WORDS.dark.test(text) ? "dark" : SCHEME_WORDS.light.test(text) ? "light" : "keep",
+    archetype: namedArchetype(text) ?? "keep",
     mbti: mbti ?? "keep",
     zodiac: zodiac ?? "keep",
   };

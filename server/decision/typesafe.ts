@@ -19,7 +19,7 @@
 import { choice, noul, TypeSafeClient, type ChoiceQuestion, type JsonValue, type Questions } from "@typesafe-ai/sdk";
 import { ARCHETYPE_PRESETS } from "../../shared/archetypes.ts";
 import { SHOP_CATEGORIES, type ShopCategory } from "../../shared/catalog.ts";
-import { understandByKeywords, type ChatContext, type ChatTurn, type ChatUpdate } from "../../shared/chat.ts";
+import { namedArchetype, namedScheme, understandByKeywords, type ChatContext, type ChatTurn, type ChatUpdate } from "../../shared/chat.ts";
 import { INFERABLE, observations, type BehaviourSummary, type InferableTrait } from "../../shared/infer.ts";
 import type { Decision } from "../../shared/decision.ts";
 import { INTERESTS, TRAITS, ZODIAC_ELEMENT, type Interest, type Trait } from "../../shared/personas.ts";
@@ -343,8 +343,9 @@ export async function understandWithTypeSafe(ctx: ChatContext, history: ChatTurn
     categories: SHOP_CATEGORIES.filter((c) => yes(`cat_${c}`)),
     budget: kw.budget,
     need: yes("need") ? text.slice(0, 60) : "",
-    scheme: sure("scheme") as ChatUpdate["scheme"],
-    archetype: sure("archetype") as ChatUpdate["archetype"],
+    // A look asked for by name ("雜誌風一點") is taken literally; Jev judges the rest.
+    scheme: namedScheme(text) ?? (sure("scheme") as ChatUpdate["scheme"]),
+    archetype: namedArchetype(text) ?? (sure("archetype") as ChatUpdate["archetype"]),
     mbti: kw.mbti,
     zodiac: kw.zodiac,
   };
