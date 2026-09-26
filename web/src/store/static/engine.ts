@@ -13,6 +13,7 @@ import { applyInferred, behaviourSummary, BEHAVIOUR_TRIGGERS, INFER_COOLDOWN_MS,
 import { applyChatUpdate, chatPrompt, parseChatAnswer, understandByKeywords, type ChatResult, type ChatTurn } from "../../../../shared/chat";
 import { decideWithRules } from "../../../../server/decision/rules";
 import { SEED_USERS } from "../../../../server/seed";
+import { VISITOR_NAME } from "../../../../shared/personas";
 import type { Order } from "../api";
 
 type Handler = (m: ServerMessage) => void;
@@ -31,6 +32,10 @@ const products = () => [...rows.values()].map(product);
 const PREFS_KEY = "llm-shop:static-prefs";
 const saved = (() => { try { return JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") as Record<string, UserPrefs>; } catch { return {}; } })();
 const users = new Map<string, User>(SEED_USERS.map((u) => [u.id, { id: u.id, name: u.name, prefs: saved[u.id] ?? u.prefs }]));
+// Visitors created in this browser on earlier visits (their prefs were saved by id).
+const BLANK = SEED_USERS.find((u) => u.id === "u_new")!.prefs;
+for (const [id, prefs] of Object.entries(saved)) if (!users.has(id)) users.set(id, { id, name: VISITOR_NAME, prefs });
+const persistPrefs = () => { try { localStorage.setItem(PREFS_KEY, JSON.stringify(Object.fromEntries([...users].map(([k, v]) => [k, v.prefs])))); } catch { /* ignore */ } };
 const events = new Map<string, ProfileEvent[]>();
 const carts = new Map<string, (CartLine)[]>();
 const orders = new Map<string, Order[]>();
@@ -104,7 +109,7 @@ function savePrefs(id: string, prefs: UserPrefs) {
   const u = users.get(id)!;
   const next = { ...u, prefs };
   users.set(id, next);
-  try { localStorage.setItem(PREFS_KEY, JSON.stringify(Object.fromEntries([...users].map(([k, v]) => [k, v.prefs])))); } catch { /* ignore */ }
+  persistPrefs();
   emit(id, { type: "user", user: next });
   return next;
 }
@@ -167,6 +172,12 @@ const cartOf = (id: string) => carts.get(id) ?? [];
 export const api = {
   meta: async () => ({ claude: false }),
   users: async () => [...users.values()],
+  createUser: async (name: string) => {
+    const u: User = { id: `u_${Math.random().toString(36).slice(2, 10)}`, name, prefs: structuredClone(BLANK) };
+    users.set(u.id, u);
+    persistPrefs();
+    return u;
+  },
   setPrefs: async (id: string, prefs: UserPrefs) => {
     const u = users.get(id);
     if (!u) throw fail(404, null);

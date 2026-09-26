@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { pickArchetype, scoreArchetypes } from "../../../shared/archetypes";
 import { SHOP_CATEGORIES } from "../../../shared/catalog";
 import { ARCHETYPES, type Archetype, type User, type UserPrefs } from "../../../shared/decision";
-import { INTERESTS, TRAITS, ZODIACS, type MBTI } from "../../../shared/personas";
+import { INTERESTS, isVisitor, TRAITS, ZODIACS, type MBTI } from "../../../shared/personas";
 import { ThemeScope, useTheme } from "../ds/theme/ThemeScope";
 import { Button } from "../ds/ui/Button";
 import { cn } from "../ds/ui/cn";
@@ -38,8 +38,8 @@ export function PersonaDock() {
         {/* Phones: avatar only. */}
         <span className="hidden text-left leading-tight sm:block">
           {/* The visitor ("你") is already the avatar; don't repeat the name. */}
-          {user.id !== "u_new" && <span className="block txt-small font-semibold">{user.name}</span>}
-          <span className={user.id === "u_new" ? "block txt-small font-medium" : "block text-[11px] opacity-75"}>{personaLine(user)}</span>
+          {!isVisitor(user.id) && <span className="block txt-small font-semibold">{user.name}</span>}
+          <span className={isVisitor(user.id) ? "block txt-small font-medium" : "block text-[11px] opacity-75"}>{personaLine(user)}</span>
         </span>
       </button>
       <PersonaDialog open={open} onClose={() => setOpen(false)} />

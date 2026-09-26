@@ -1,21 +1,20 @@
 // First visit: tell the visitor what this demo is — the store becomes what
 // *they* are — and offer the two ways in: talk (guided chat) or pick traits.
-// Shown to the visitor ("你") while we know nothing about them, once per
+// Shown to this browser's visitor ("你") until they've told us anything, once per
 // browser (dismissal remembered in localStorage, read in an effect so render
 // never touches it).
 import { useEffect, useState } from "react";
-import type { UserPrefs } from "../../../shared/decision";
+import { isVisitor, nothingStated } from "../../../shared/personas";
 import { GUIDE_COPY } from "./copy";
 import { useStore } from "./StoreContext";
 
 const KEY = "llm-shop:welcomed";
-const unknown = (p: UserPrefs) => !p.persona.mbti && !p.persona.zodiac && p.persona.traits.length === 0;
 
 export function Welcome() {
   const { user, envelope, chatOpen, personaOpen, setChatOpen, setPersonaOpen } = useStore();
   const [seen, setSeen] = useState(true);
   useEffect(() => { try { setSeen(localStorage.getItem(KEY) === "1"); } catch { setSeen(false); } }, []);
-  if (seen || !envelope || !user || user.id !== "u_new" || !unknown(user.prefs) || chatOpen || personaOpen) return null;
+  if (seen || !envelope || !user || !isVisitor(user.id) || !nothingStated(user.prefs.persona) || chatOpen || personaOpen) return null;
 
   const close = () => { setSeen(true); try { localStorage.setItem(KEY, "1"); } catch { /* private mode */ } };
   const c = GUIDE_COPY.welcome;

@@ -12,11 +12,15 @@ import { flushSync } from "react-dom";
 import type { Product } from "../../../shared/catalog";
 import type { ActivityItem, CartLine, DecisionEnvelope, ServerMessage, User, UserPrefs } from "../../../shared/decision";
 import { particleMorph } from "../ds/fx/particleMorph";
+import { isVisitor, VISITOR_NAME } from "../../../shared/personas";
 import { api, openChannel } from "./backend";
 
+// Two remembered ids per browser: this browser's own visitor ("你", created
+// on first visit), and whichever shopper is selected right now.
 const USER_KEY = "llm-shop:user";
-const readUser = () => { try { return localStorage.getItem(USER_KEY) ?? undefined; } catch { return undefined; } };
-const writeUser = (id: string) => { try { localStorage.setItem(USER_KEY, id); } catch { /* private mode */ } };
+const VISITOR_KEY = "llm-shop:visitor";
+const read = (k: string) => { try { return localStorage.getItem(k) ?? undefined; } catch { return undefined; } };
+const write = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* private mode */ } };
 
 // Triggers the shopper asked for — these may rearrange the current page.
 const IMMEDIATE = new Set(["open", "prefs", "chat"]);
@@ -67,7 +71,7 @@ export const useStore = () => {
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useState<User[]>([]);
-  const [userId, setUserId] = useState<string | undefined>(readUser);
+  const [userId, setUserId] = useState<string | undefined>();
   const [claude, setClaude] = useState(false);
   const [connected, setConnected] = useState(false);
   const [user, setUser] = useState<User>();
@@ -86,15 +90,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     api.meta().then((m) => setClaude(m.claude)).catch(() => {});
-    api.users().then((us) => {
-      setUsers(us);
-      setUserId((cur) => (cur && us.some((u) => u.id === cur) ? cur : us.find((u) => u.id === "u_new")?.id ?? us[0]?.id));
-    });
+    void (async () => {
+      const all = await api.users();
+      let visitor = all.find((u) => u.id === read(VISITOR_KEY));
+      if (!visitor) {
+        // First visit (or the server forgot us): our own "你".
+        try { const me = await api.createUser(VISITOR_NAME); write(VISITOR_KEY, me.id); visitor = me; }
+        catch { visitor = all.find((u) => u.id === "u_new"); }
+      }
+      // Other browsers' visitors are not ours to show.
+      const demo = all.filter((u) => !isVisitor(u.id));
+      setUsers(visitor ? [visitor, ...demo] : demo);
+      const cur = read(USER_KEY);
+      setUserId(cur && (cur === visitor?.id || demo.some((u) => u.id === cur)) ? cur : visitor?.id ?? demo[0]?.id);
+    })();
   }, []);
 
   useEffect(() => {
     if (!userId) return;
-    writeUser(userId);
+    write(USER_KEY, userId);
     return openChannel(userId, {
       onOpen: () => setConnected(true),
       onClose: () => setConnected(false),

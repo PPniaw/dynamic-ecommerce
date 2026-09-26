@@ -43,3 +43,15 @@ export interface Persona {
 }
 
 export const EMPTY_PERSONA: Persona = { mbti: null, zodiac: null, traits: [], interests: [] };
+
+// ---- who is who --------------------------------------------------------------
+// Four prepared example shoppers; everyone else is a visitor ("你"), one per
+// browser, created on first visit.
+export const DEMO_SHOPPER_IDS = ["u_ines", "u_leo", "u_ada", "u_ken"] as const;
+export const VISITOR_NAME = "你";
+export const isVisitor = (id: string) => !(DEMO_SHOPPER_IDS as readonly string[]).includes(id);
+
+// Nothing the shopper has *told* us yet (guesses from browsing don't count):
+// such a visitor gets the welcome card and the guided chat.
+export const nothingStated = (p: Persona) =>
+  !p.mbti && !p.zodiac && p.traits.every((t) => p.inferred?.includes(t));

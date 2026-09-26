@@ -10,7 +10,7 @@ import { Link } from "react-router";
 import { productPath } from "../../../shared/catalog";
 import type { ChatChange, ChatResult, ChatTurn } from "../../../shared/chat";
 import { ARCHETYPES, type UserPrefs } from "../../../shared/decision";
-import { MBTI_TYPES, TRAITS, ZODIACS, type Persona, type Trait } from "../../../shared/personas";
+import { isVisitor, MBTI_TYPES, nothingStated, TRAITS, ZODIACS, type Persona, type Trait } from "../../../shared/personas";
 import { Price } from "../ds/ui/Price";
 import { ProductImage } from "../ds/ui/ProductImage";
 import { cn } from "../ds/ui/cn";
@@ -30,8 +30,9 @@ type Step = "mbti" | "zodiac" | "traits" | "style" | "scheme";
 const STEPS: Step[] = ["mbti", "zodiac", "traits", "style", "scheme"];
 const askOf = (s: Step) => GUIDE_COPY[s].ask;
 
-// Someone we know nothing about gets the guided start.
-const unknown = (p: UserPrefs) => !p.persona.mbti && !p.persona.zodiac && p.persona.traits.length === 0;
+// A visitor who hasn't told us anything yet gets the guided start (guesses from
+// browsing don't count; the demo shoppers are already described).
+const guided = (id: string, p: UserPrefs) => isVisitor(id) && nothingStated(p.persona);
 
 interface ChatState { msgs: Msg[]; step: number | null }
 
@@ -43,7 +44,7 @@ export function ChatDock() {
   if (!user || !envelope) return null;
   const copy = CHAT_COPY[envelope.decision.archetype];
   const cur: ChatState = state.userId === user.id ? state
-    : unknown(user.prefs) ? { msgs: [{ role: "assistant", text: askOf("mbti") }], step: 0 } : { msgs: [], step: null };
+    : guided(user.id, user.prefs) ? { msgs: [{ role: "assistant", text: askOf("mbti") }], step: 0 } : { msgs: [], step: null };
   const setChat = (next: ChatState) => setState({ ...next, userId: user.id });
   return (
     <>
