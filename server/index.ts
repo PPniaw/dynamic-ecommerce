@@ -273,7 +273,7 @@ app.post("/api/users/:id/chat", async (req, res) => {
   const env = (await run(user.id, "chat")) ?? latest.get(user.id);
   const d = env?.decision;
   const productIds = d ? [...new Set([...d.hero.productIds, ...d.sections.flatMap((s) => s.productIds)])].slice(0, 3) : [];
-  const out: ChatResult = { reply: understood.reply, understoodBy: by, changes, productIds };
+  const out: ChatResult = { reply: understood.reply, understoodBy: by, changes, productIds, archetype: d?.archetype };
   console.log(`[chat] ${user.id} "${text.slice(0, 30)}" → ${by}, ${changes.length} changes`);
   res.json(out);
 });

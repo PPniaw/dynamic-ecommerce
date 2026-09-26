@@ -53,7 +53,7 @@ function ChatPanel({ userId, onClose }: { userId: string; onClose: () => void })
     try {
       const r = await api.chat(userId, text, history);
       // No AI reply → answer in the voice of the store they're now in.
-      const voice = CHAT_COPY[envelope!.decision.archetype];
+      const voice = CHAT_COPY[r.archetype ?? envelope!.decision.archetype];
       setMsgs((m) => [...m, { role: "assistant", text: r.reply ?? voice.reply(r.changes.length > 0), changes: r.changes, productIds: r.productIds, by: r.understoodBy }]);
     } catch {
       setMsgs((m) => [...m, { role: "assistant", text: CHAT_UI.failed }]);

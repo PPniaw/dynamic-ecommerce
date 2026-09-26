@@ -53,6 +53,8 @@ export interface ChatResult {
   changes: ChatChange[];
   // Products to show under the reply: the top of the new storefront.
   productIds: string[];
+  // The store after this message — the canned reply speaks in its voice.
+  archetype?: Archetype;
 }
 
 // Traits that contradict each other: adding one drops the other.

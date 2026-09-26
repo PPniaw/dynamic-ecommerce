@@ -203,7 +203,7 @@ export const api = {
     clearTimeout(timers.get(id));
     const d = decideNow(id, "chat")?.decision;
     const productIds = d ? [...new Set([...d.hero.productIds, ...d.sections.flatMap((s) => s.productIds)])].slice(0, 3) : [];
-    return { reply: understood.reply, understoodBy: by, changes, productIds };
+    return { reply: understood.reply, understoodBy: by, changes, productIds, archetype: d?.archetype };
   },
   profile: async (id: string) => profileFrom(events.get(id) ?? [], cartOf(id), products()),
   event: async (userId: string, type: "view" | "favorite" | "search", productId?: string) => {
