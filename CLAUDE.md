@@ -65,6 +65,9 @@ TypeSafe 的文件站在這個環境連不到,SDK 的 README 與型別(`node_mod
   AI 呼叫有上限(每位顧客每分鐘 `SHOP_AI_PER_SHOPPER_PER_MIN`=30、全站 `SHOP_AI_GLOBAL_PER_MIN`=200),超過改用規則 / 關鍵字;
   建立訪客每小時上限 120。AI 回話經 `safeReply` 把關:提到金額、折扣、免費、庫存、網址就整段丟掉,改用 `copy.ts` 的文案。
   價格永遠讀資料庫,結帳用當下價格重算。
+- **統計頁** `/stats.html`(`web/src/stats/`,資料 `server/stats.ts` → `GET /api/stats`):要 `.env` 的 `SHOP_STATS_KEY`
+  (header `x-stats-key`),沒設就停用。只算訪客(不算 4 位示範顧客);「在線」是目前的 WebSocket 連線。
+  預覽頁(claude.ai)沒有 server,算不到。
 - **Claude 呼叫不用 SDK 的 `betaZodOutputFormat`**:它會把 enum 降成描述文字。用 `z.toJSONSchema`。
 - **顏色只從 5 個種子色推算**,`derive.ts` 會把不及格的角色色推到 WCAG AA。LLM 選 palette 和 surface,不選色碼。
 - **`text-base` 在 Tailwind 是字級,不是顏色**。要用底色當文字色寫 `text-(--bg-base)`。

@@ -11,7 +11,7 @@ export default defineConfig({
   build: {
     outDir: "../dist",
     emptyOutDir: true,
-    rollupOptions: { input: { main: resolve("web/index.html"), lab: resolve("web/lab.html") } },
+    rollupOptions: { input: { main: resolve("web/index.html"), lab: resolve("web/lab.html"), stats: resolve("web/stats.html") } },
   },
   server: {
     port: 5173,

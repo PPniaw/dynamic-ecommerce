@@ -10,7 +10,9 @@ import {
   checkout, CheckoutError, createUser, getCart, getProduct, getUser, listOrders, listPrices,
   listProducts, listUsers, logEvent, saveDecision, setCartQty, setPrefs, updateProduct,
 } from "./db.ts";
+import { timingSafeEqual } from "node:crypto";
 import { isVisitor } from "../shared/personas.ts";
+import { buildStats } from "./stats.ts";
 import { applyChatUpdate, understandByKeywords, type ChatContext, type ChatResult, type ChatTurn, type ChatUpdate } from "../shared/chat.ts";
 import { chatWithClaude, claudeEnabled } from "./decision/claude.ts";
 import { decide, decideWithRules, llmEnabled, sanitize, type DecisionInput } from "./decision/index.ts";
@@ -39,6 +41,7 @@ const toAll = (m: ServerMessage) => sockets.forEach((set) => set.forEach((ws) =>
 // request comes from 127.0.0.1.)
 
 const hits = new Map<string, number[]>();
+let aiFallbacks = 0; // shown on the stats page
 function allow(key: string, limit: number, windowMs: number): boolean {
   const now = Date.now();
   const recent = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
@@ -52,7 +55,7 @@ const AI_GLOBAL_PER_MIN = Number(process.env.SHOP_AI_GLOBAL_PER_MIN ?? 200);
 function aiAllowed(userId: string): boolean {
   // Check the shopper first so one busy shopper can't use up the global budget alone.
   const ok = allow(`ai:${userId}`, AI_PER_SHOPPER_PER_MIN, 60_000) && allow("ai:*", AI_GLOBAL_PER_MIN, 60_000);
-  if (!ok) console.warn(`[ai] budget exceeded for ${userId}; using rules`);
+  if (!ok) { aiFallbacks++; console.warn(`[ai] budget exceeded for ${userId}; using rules`); }
   return ok;
 }
 
@@ -212,6 +215,18 @@ setInterval(marketTick, Number(process.env.MARKET_TICK_MS ?? 2500));
 // ---- REST ------------------------------------------------------------------
 
 app.get("/api/meta", (_req, res) => { res.json({ claude: llmEnabled() }); });
+
+// Stats page (web/stats.html). The demo URL is public, so this needs the key
+// from SHOP_STATS_KEY; without one set, stats are off entirely.
+const STATS_KEY = process.env.SHOP_STATS_KEY?.trim();
+app.get("/api/stats", (req, res) => {
+  const given = String(req.get("x-stats-key") ?? "");
+  if (!STATS_KEY) { res.status(403).json({ error: "disabled" }); return; }
+  const a = Buffer.from(given), b = Buffer.from(STATS_KEY);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) { res.status(401).json({ error: "bad_key" }); return; }
+  const tabs = [...sockets.values()].reduce((n, set) => n + set.size, 0);
+  res.json(buildStats({ shoppers: [...sockets.keys()].filter((id) => isVisitor(id) && id !== "u_new").length, tabs }, aiFallbacks));
+});
 app.get("/api/products", (_req, res) => { res.json(listProducts()); });
 // Only the demo shoppers are listed. Visitors' ids are random and never
 // listed, so nobody can pick someone else's "你" to act as them (there is no

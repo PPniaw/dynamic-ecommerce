@@ -248,3 +248,22 @@ export function saveDecision(userId: string, source: string, trigger: string, la
   db.prepare("INSERT INTO decisions (user_id,source,trigger,latency_ms,body,ts) VALUES (?,?,?,?,?,?)")
     .run(userId, source, trigger, latencyMs, JSON.stringify(body), Date.now());
 }
+
+// ---- stats (the /stats.html page) -------------------------------------------
+// Raw rows for server/stats.ts. Demo shoppers are filtered there.
+
+export function statsRows(sinceTs: number) {
+  return {
+    users: db.prepare("SELECT id, prefs FROM users").all() as unknown as { id: string; prefs: string }[],
+    // First and last time each shopper made the store re-decide.
+    seen: db.prepare("SELECT user_id, MIN(ts) AS first, MAX(ts) AS last, SUM(trigger = 'chat') AS chats FROM decisions GROUP BY user_id")
+      .all() as unknown as { user_id: string; first: number; last: number; chats: number }[],
+    // Each shopper's latest store.
+    latest: db.prepare(`SELECT d.user_id, d.body FROM decisions d
+      JOIN (SELECT user_id, MAX(id) AS mid FROM decisions GROUP BY user_id) m ON d.id = m.mid`)
+      .all() as unknown as { user_id: string; body: string }[],
+    recent: db.prepare("SELECT user_id, source, trigger, ts FROM decisions WHERE ts >= ?")
+      .all(sinceTs) as unknown as { user_id: string; source: string; trigger: string; ts: number }[],
+    orders: db.prepare("SELECT user_id, total, ts FROM orders").all() as unknown as { user_id: string; total: number; ts: number }[],
+  };
+}
