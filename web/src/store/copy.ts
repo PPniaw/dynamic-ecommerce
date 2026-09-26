@@ -193,3 +193,28 @@ export const INFER_COPY = {
   chipTitle: "從你的逛法推測的;點掉就不會再猜",
   panelHint: "虛線的是從你的逛法猜的。點掉就不會再猜。",
 };
+
+// ---- first visit: welcome card + guided chat --------------------------------
+// The demo's story: first the store learns *who you are* (style & layout
+// follow), then *what you're looking for* (products follow).
+export const GUIDE_COPY = {
+  unknownPersona: "還不認識你 · 點我",
+  welcome: {
+    eyebrow: "日常所 · 會變的選物店",
+    title: "這家店會長成你的樣子",
+    body: "先讓店認識你:MBTI、星座、個性、喜歡的風格。每回答一題,店的風格和版面就會跟著變。認識你之後,再告訴我們你想找什麼。",
+    chat: "💬 聊聊,讓店認識你",
+    pick: "直接選特質",
+    browse: "先隨便逛逛",
+  },
+  mbti: { ask: "先認識你一下。你的 MBTI 是?", skip: "不知道", ack: (v: string) => `${v},記下了。看看店的樣子,已經跟著變了。` },
+  zodiac: { ask: "星座呢?", skip: "跳過", ack: (v: string) => `${v}座。店也跟著調了一點。` },
+  traits: { ask: "哪幾個詞最像你?可以多選,選好按「好了」。", done: "好了", skip: "跳過", ack: (vs: string[]) => `${vs.join("、")},懂了。` },
+  style: { ask: "你喜歡逛哪種店?", auto: "你幫我決定", autoAck: "好,交給我依你的個性決定。", ack: (v: string) => `好,就照「${v}」來。` },
+  scheme: { ask: "最後,亮一點還是暗一點?", light: "亮一點", dark: "暗一點", auto: "都可以", ack: (v: string) => `${v},好。` },
+  skipped: "沒關係,跳過。",
+  done: "店已經照你的樣子排好了。現在想找什麼?直接說就好:預算、送誰、什麼場合都可以。",
+  productSuggestions: ["想找送朋友的生日禮物,1000 以內", "最近想好好泡一杯咖啡", "有什麼新東西?"],
+  skipAll: "跳過,直接聊",
+  step: (i: number, n: number) => `認識你 ${i}/${n}`,
+};

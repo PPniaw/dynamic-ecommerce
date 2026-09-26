@@ -40,7 +40,8 @@ export const SEED_USERS: { id: string; name: string; prefs: UserPrefs }[] = [
     },
   },
   {
-    id: "u_new", name: "新訪客",
+    // The visitor themself: the demo is about *you* shaping the store.
+    id: "u_new", name: "你",
     prefs: { archetype: "auto", scheme: "auto", budget: null, categories: [], need: "", persona: { ...EMPTY_PERSONA } },
   },
 ];

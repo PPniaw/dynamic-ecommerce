@@ -89,6 +89,8 @@ if (productCount === 0) {
   const insU = db.prepare("INSERT INTO users (id,name,prefs) VALUES (?,?,?)");
   for (const u of SEED_USERS) insU.run(u.id, u.name, JSON.stringify(u.prefs));
 }
+// Databases seeded before the rename: the visitor is "你", not "新訪客".
+db.prepare("UPDATE users SET name = '你' WHERE id = 'u_new' AND name = '新訪客'").run();
 
 // ---- products --------------------------------------------------------------
 

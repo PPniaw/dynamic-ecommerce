@@ -10,17 +10,16 @@ import { INTERESTS, TRAITS, ZODIACS, type MBTI } from "../../../shared/personas"
 import { ThemeScope, useTheme } from "../ds/theme/ThemeScope";
 import { Button } from "../ds/ui/Button";
 import { cn } from "../ds/ui/cn";
-import { ARCHETYPE_LABEL, CATEGORY_COPY, INFER_COPY } from "./copy";
+import { ARCHETYPE_LABEL, CATEGORY_COPY, GUIDE_COPY, INFER_COPY } from "./copy";
 import { useStore } from "./StoreContext";
 
 export function personaLine(u: User) {
   const p = u.prefs.persona;
-  return [p.mbti, p.zodiac && `${p.zodiac}座`].filter(Boolean).join(" · ") || "還沒填個性";
+  return [p.mbti, p.zodiac && `${p.zodiac}座`].filter(Boolean).join(" · ") || GUIDE_COPY.unknownPersona;
 }
 
 export function PersonaDock() {
-  const { user } = useStore();
-  const [open, setOpen] = useState(false);
+  const { user, personaOpen: open, setPersonaOpen: setOpen } = useStore();
   const guessed = useGuessToast(user);
   if (!user) return null;
   return (
@@ -38,8 +37,9 @@ export function PersonaDock() {
         <span className="grid h-8 w-8 place-items-center rounded-full bg-accent txt-small font-bold text-on-accent">{user.name.slice(0, 1)}</span>
         {/* Phones: avatar only. */}
         <span className="hidden text-left leading-tight sm:block">
-          <span className="block txt-small font-semibold">{user.name}</span>
-          <span className="block text-[11px] opacity-75">{personaLine(user)}</span>
+          {/* The visitor ("你") is already the avatar; don't repeat the name. */}
+          {user.id !== "u_new" && <span className="block txt-small font-semibold">{user.name}</span>}
+          <span className={user.id === "u_new" ? "block txt-small font-medium" : "block text-[11px] opacity-75"}>{personaLine(user)}</span>
         </span>
       </button>
       <PersonaDialog open={open} onClose={() => setOpen(false)} />

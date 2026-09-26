@@ -6,6 +6,7 @@ import { DEFAULT_THEME, ThemeScope } from "../ds/theme/ThemeScope";
 import { Skeleton } from "../ds/ui/Skeleton";
 import { CartDrawer } from "./CartDrawer";
 import { ChatDock } from "./ChatDock";
+import { Welcome } from "./Welcome";
 import { DecisionPeek } from "./DecisionPeek";
 import { CategoryPage, NotFound } from "./pages/CategoryPage";
 import { Home } from "./pages/Home";
@@ -60,6 +61,7 @@ function Shell() {
         <CartDrawer />
         <PersonaDock />
         <ChatDock />
+        <Welcome />
         <DecisionPeek />
       </div>
     </ThemeScope>

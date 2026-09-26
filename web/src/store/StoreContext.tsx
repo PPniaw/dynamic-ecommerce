@@ -51,6 +51,11 @@ interface Store {
   add: (productId: string) => Promise<void>;
   checkout: () => Promise<{ orderId: number; total: number }>;
   setCartOpen: (open: boolean) => void;
+  // The chat and the persona panel can be opened from elsewhere (the welcome card).
+  chatOpen: boolean;
+  setChatOpen: (open: boolean) => void;
+  personaOpen: boolean;
+  setPersonaOpen: (open: boolean) => void;
 }
 
 const Ctx = createContext<Store | null>(null);
@@ -73,6 +78,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [deciding, setDeciding] = useState<string>();
   const [cart, setCart] = useState<CartLine[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [personaOpen, setPersonaOpen] = useState(false);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   // Set while a shopper switch is in flight, so its first decision applies at once.
   const switching = useRef(true);
@@ -167,7 +174,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       return api.checkout(userId);
     },
     setCartOpen,
-  }), [connected, claude, users, user, products, changed, envelope, pending, deciding, cart, cartOpen, activity, userId, applyPending]);
+    chatOpen, setChatOpen, personaOpen, setPersonaOpen,
+  }), [connected, claude, users, user, products, changed, envelope, pending, deciding, cart, cartOpen, activity, userId, applyPending, chatOpen, personaOpen]);
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;
 }

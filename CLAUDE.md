@@ -32,7 +32,7 @@ TypeSafe 的文件站在這個環境連不到,SDK 的 README 與型別(`node_mod
 - `server/` —— Express + ws + `node:sqlite`(`data/shop-v2.db`)、市場模擬、決策排程、
   `decision/rules.ts`(規則引擎)、`decision/typesafe.ts`、`decision/claude.ts`、`decision/index.ts`(sanitize)、`decision/limits.ts`
 - `web/src/ds/` —— 設計系統:token(`tokens.css`、`theme/`)、基本元件、商品卡
-- `web/src/store/` —— 商店:`sections/`、`cards/`、`pages/`,各有四種店型的變體;`copy.ts` 是所有文字;`ChatDock.tsx` 是聊天
+- `web/src/store/` —— 商店:`sections/`、`cards/`、`pages/`,各有四種店型的變體;`copy.ts` 是所有文字;`ChatDock.tsx` 是聊天(含引導);`Welcome.tsx` 是第一次的歡迎卡
 - `web/src/store/static/engine.ts` —— 瀏覽器內的後端,給發布的預覽頁用(`VITE_STATIC=1`)
 
 ## 紀律(每一條都有原因,別隨手改回去)
@@ -46,6 +46,10 @@ TypeSafe 的文件站在這個環境連不到,SDK 的 README 與型別(`node_mod
   (trigger `chat`,和 `prefs` 一樣不等換頁)。讀法:Claude(server 有 key,或預覽頁的 `sample`)> Jev > 關鍵字。
   **回話是唯一讓 LLM 寫給顧客看的文字**:prompt 禁止提價格、折扣、庫存;價格和庫存由回話下的商品卡從即時資料顯示。
   沒有 AI 回話時(`reply: null`)前端用 `copy.ts` 的 `CHAT_COPY` 依店型回。
+- **第一次來的訪客先引導**(demo 的主軸是「先認識你 → 店長成你的樣子 → 再找商品」):預設顧客 `u_new` 叫「你」,
+  個性全空時跳歡迎卡(`Welcome.tsx`,看過記在 localStorage)→「聊聊」或「直接選特質」。
+  聊天先走固定五題(MBTI → 星座 → 個性 → 店型 → 明暗),**答案直接寫進 persona,不經 AI**(快、準),每題都立刻重排 + 粒子;
+  問完才問商品,交給 AI 讀。手機上聊天只占下半部,讓人看得到店在變。
 - **從行為猜個性**(`shared/infer.ts`):瀏覽類觸發、至少 4 個事件、每 15 秒且新增 3 個事件才跑一次。
   行為先整理成白話觀察句(Jev 讀原始數字很差),每個可猜的個性問一題、附上「是 / 不是」的依據;
   **Jev 60% + 規則 40% 加權**(Jev 單獨時對每個人都偏向「重設計」)。≥ 0.75 加入、< 0.35 撤掉。
