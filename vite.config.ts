@@ -15,8 +15,11 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    // Public demo through Tailscale Funnel (`tailscale funnel 5173`): Vite
-    // rejects unknown Host headers, so allow tailnet names.
+    // Public demo through Tailscale Funnel (`tailscale funnel 5173`). Funnel
+    // proxies to 127.0.0.1, but on macOS Vite's default "localhost" binds only
+    // ::1 → 502. Bind IPv4 explicitly; browsers opening localhost fall back to it.
+    host: "127.0.0.1",
+    // Vite rejects unknown Host headers; allow tailnet names.
     allowedHosts: [".ts.net"],
     proxy: {
       "/api": API,
