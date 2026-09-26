@@ -19,6 +19,7 @@ npm run typecheck
 npm run check:contrast   # 改 palettes.ts / derive.ts 之後必跑
 ```
 
+server 啟動時自己讀 `.env`(`server/env.ts`,shell 已設的變數優先),不必先 `export`。
 決策引擎的優先順序:`TYPESAFE_API_KEY`(TypeSafe Jev)> `ANTHROPIC_API_KEY`(Claude)> 規則引擎,輸出格式都一樣。
 雲端環境已設 `TYPESAFE_API_KEY` 並允許 `api.typesafe.ai`;**Claude 那條路還沒有 key,只對 mock 驗過。**
 TypeSafe 的文件站在這個環境連不到,SDK 的 README 與型別(`node_modules/@typesafe-ai/sdk/dist/index.d.mts`)就是文件。

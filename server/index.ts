@@ -1,3 +1,4 @@
+import "./env.ts"; // first: loads .env before other modules read process.env
 import express from "express";
 import { createServer } from "node:http";
 import { existsSync } from "node:fs";
