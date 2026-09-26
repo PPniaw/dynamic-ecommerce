@@ -17,13 +17,16 @@ type RGBA = [number, number, number, number];
 interface Pt { x: number; y: number; c: RGBA; s: number }
 interface Src { el: Element; kind: "text" | "img" | "block"; rect: DOMRect; color: RGBA }
 
-const TOTAL_MS = 1250;
-const HIDE_MS = 180;          // old page fades into its particles, then the update applies
-const FLY_START = 200;
-const FLY_MS = 620;
-const STAGGER_MS = 260;       // top of the screen moves first
-const REVEAL_START = 780;     // new page fades in under the particles
-const REVEAL_MS = 380;
+// Tuned soft (2026-09-26): slower, gentle arcs, fine translucent dots, and the
+// page fades overlap the particles so nothing snaps.
+const TOTAL_MS = 1600;
+const HIDE_MS = 260;          // old page fades into its particles, then the update applies
+const FLY_START = 220;
+const FLY_MS = 820;
+const STAGGER_MS = 200;       // top of the screen moves first
+const REVEAL_START = 880;     // new page fades in under the particles
+const REVEAL_MS = 620;
+const DOT_ALPHA = 0.55;       // particles never fully opaque
 
 let running: { finish: () => void } | undefined;
 
@@ -34,7 +37,7 @@ export function particleMorph(update: () => void) {
   const roots = [...document.querySelectorAll<HTMLElement>("[data-morph]")];
   if (!roots.length || prefersReducedMotion()) { update(); return; }
 
-  const budget = Math.round(Math.min(4200, Math.max(1200, (innerWidth * innerHeight) / 240)));
+  const budget = Math.round(Math.min(2600, Math.max(800, (innerWidth * innerHeight) / 400)));
   let from: Pt[];
   try { from = particlesFrom(sources(roots), budget); } catch { update(); return; }
 
@@ -50,7 +53,7 @@ export function particleMorph(update: () => void) {
   ctx.scale(dpr, dpr);
 
   const setOpacity = (v: number, ms: number) => roots.forEach((r) => {
-    r.style.transition = ms ? `opacity ${ms}ms ease` : "";
+    r.style.transition = ms ? `opacity ${ms}ms ease-out` : "";
     r.style.opacity = String(v);
   });
   setOpacity(0, HIDE_MS);
@@ -83,7 +86,7 @@ export function particleMorph(update: () => void) {
   }, HIDE_MS + 340);
 
   // Per-particle randomness: curve and timing.
-  const seeds = from.map(() => ({ bend: (Math.random() - 0.5) * 220, jitter: Math.random() * 110, size: 2 + Math.random() * 2.2 }));
+  const seeds = from.map(() => ({ bend: (Math.random() - 0.5) * 70, jitter: Math.random() * 140, size: 0.9 + Math.random() * 1.1 }));
   const t0 = performance.now();
   // Marks the page while morphing (CSS hooks, and tests read the clock).
   document.documentElement.dataset.morphing = String(Math.round(t0));
@@ -110,24 +113,26 @@ export function particleMorph(update: () => void) {
     ctx.clearRect(0, 0, innerWidth, innerHeight);
     if (!revealed && t >= REVEAL_START) {
       revealed = true;
-      liveRoots().forEach((r) => { r.style.transition = `opacity ${REVEAL_MS}ms ease`; r.style.opacity = "1"; });
+      liveRoots().forEach((r) => { r.style.transition = `opacity ${REVEAL_MS}ms ease-in-out`; r.style.opacity = "1"; });
     }
     const fadeIn = Math.min(1, t / HIDE_MS);
-    const fadeOut = t < REVEAL_START ? 1 : Math.max(0, 1 - (t - REVEAL_START) / REVEAL_MS);
+    const fadeOut = t < REVEAL_START ? 1 : ease(Math.max(0, 1 - (t - REVEAL_START) / REVEAL_MS));
     const target = to ?? from;
     for (let i = 0; i < from.length; i++) {
       const a = from[i], b = target[i], s = seeds[i];
       const delay = FLY_START + (Math.min(a.y, b.y) / innerHeight) * STAGGER_MS + s.jitter;
       const k = ease(clamp01((t - delay) / FLY_MS));
-      // Quadratic curve through a bent midpoint: particles swirl, not slide.
-      const mx = (a.x + b.x) / 2 + s.bend, my = (a.y + b.y) / 2 - Math.abs(s.bend) * 0.6;
+      // Quadratic curve through a slightly bent midpoint: a soft drift, not a swirl.
+      const mx = (a.x + b.x) / 2 + s.bend, my = (a.y + b.y) / 2 - Math.abs(s.bend) * 0.25;
       const x = (1 - k) * (1 - k) * a.x + 2 * (1 - k) * k * mx + k * k * b.x;
       const y = (1 - k) * (1 - k) * a.y + 2 * (1 - k) * k * my + k * k * b.y;
       const c = mix(a.c, b.c, k);
-      ctx.globalAlpha = c[3] * fadeIn * fadeOut;
+      ctx.globalAlpha = c[3] * DOT_ALPHA * fadeIn * fadeOut;
       ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
-      const r = s.size * (1 + Math.sin(k * Math.PI) * 0.8);
-      ctx.fillRect(x - r / 2, y - r / 2, r, r);
+      const r = s.size * (1 + Math.sin(k * Math.PI) * 0.3);
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
     }
     if (t < TOTAL_MS) raf = requestAnimationFrame(frame);
     else done();
@@ -210,7 +215,7 @@ function pair(from: Pt[], to: Pt[]): Pt[] {
 // ---- small helpers ------------------------------------------------------------
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
-const ease = (k: number) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
+const ease = (k: number) => -(Math.cos(Math.PI * k) - 1) / 2; // ease-in-out sine
 const mix = (a: RGBA, b: RGBA, k: number): RGBA => [
   Math.round(a[0] + (b[0] - a[0]) * k), Math.round(a[1] + (b[1] - a[1]) * k), Math.round(a[2] + (b[2] - a[2]) * k), a[3] + (b[3] - a[3]) * k,
 ];
