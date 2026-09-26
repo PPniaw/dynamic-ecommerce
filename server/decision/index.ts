@@ -73,9 +73,11 @@ function dominantCategory(ids: string[], live: Map<string, Product>): Product["c
 // Any LLM engine configured? (TypeSafe wins when both keys are set.)
 export const llmEnabled = () => typesafeEnabled() || claudeEnabled();
 
-export async function decide(input: DecisionInput): Promise<DecisionEnvelope> {
+// `llm: false` → rules only (the caller is over its AI budget; see server/index.ts).
+export async function decide(input: DecisionInput, opts: { llm?: boolean } = {}): Promise<DecisionEnvelope> {
   const t0 = Date.now();
-  if (typesafeEnabled()) {
+  const llm = opts.llm ?? true;
+  if (llm && typesafeEnabled()) {
     try {
       const d = await decideWithTypeSafe(input);
       return { decision: sanitize(d, input.products), source: "typesafe", latencyMs: Date.now() - t0, at: Date.now(), trigger: input.trigger };
@@ -84,7 +86,7 @@ export async function decide(input: DecisionInput): Promise<DecisionEnvelope> {
       if (e.status === 401) console.error("[decide] TypeSafe auth failed — check TYPESAFE_API_KEY");
       else console.warn(`[decide] TypeSafe failed${e.status ? ` (${e.status})` : ""}:`, e.message);
     }
-  } else if (claudeEnabled()) {
+  } else if (llm && claudeEnabled()) {
     try {
       const d = await decideWithClaude(input);
       return { decision: sanitize(d, input.products), source: "claude", latencyMs: Date.now() - t0, at: Date.now(), trigger: input.trigger };

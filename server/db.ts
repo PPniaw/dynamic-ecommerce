@@ -135,7 +135,7 @@ export function updateProduct(id: string, patch: { price?: number; stock?: numbe
 // ---- users -----------------------------------------------------------------
 
 const DEFAULT_PREFS: UserPrefs = {
-  archetype: "auto", scheme: "auto", budget: null, categories: [], need: "", persona: EMPTY_PERSONA,
+  archetype: "auto", scheme: "auto", vibe: "auto", budget: null, categories: [], need: "", persona: EMPTY_PERSONA,
 };
 
 type UserRow = { id: string; name: string; prefs: string };

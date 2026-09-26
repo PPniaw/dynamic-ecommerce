@@ -1,7 +1,7 @@
 // Every word the shopper sees. The decision engines only emit enums; this is
 // where they become language — in each archetype's own voice. The same intent
 // reads differently in a magazine than in a spec sheet or a bargain bin.
-import type { Archetype, Decision, DecisionSource } from "../../../shared/decision";
+import type { Archetype, Decision, DecisionSource, Vibe } from "../../../shared/decision";
 import type { ShopCategory } from "../../../shared/catalog";
 import type { ChatChange } from "../../../shared/chat";
 
@@ -13,6 +13,14 @@ export const ARCHETYPE_LABEL: Record<Archetype, { name: string; who: string }> =
   collage: { name: "拼貼", who: "好奇、愛驚喜的人" },
   index: { name: "索引", who: "理性比較規格的人" },
   deal: { name: "特賣", who: "務實、趕時間的人" },
+};
+
+// The look laid over the layout (shared/vibes.ts).
+export const VIBE_LABEL: Record<Vibe, { name: string; hint: string }> = {
+  none: { name: "簡約", hint: "乾淨,讓商品說話" },
+  retro: { name: "復古", hint: "70 年代印刷、紙張顆粒" },
+  y2k: { name: "Y2K 韓系", hint: "粉紫漸層、泡泡圓角" },
+  scifi: { name: "科幻金屬", hint: "深色鋼、青色光、網格" },
 };
 
 type Intent = Decision["sections"][number]["intent"];
@@ -180,6 +188,7 @@ export function changeLabel(c: ChatChange): string {
     case "need": return `需求:${c.value}`;
     case "scheme": return c.value === "dark" ? "換成暗色" : "換成亮色";
     case "archetype": return c.value === "auto" ? "店型交給 AI" : `換成${ARCHETYPE_LABEL[c.value].name}店`;
+    case "vibe": return c.value === "auto" ? "風格交給 AI" : `風格:${VIBE_LABEL[c.value].name}`;
     case "mbti": return `MBTI ${c.value}`;
     case "zodiac": return `${c.value}座`;
   }
@@ -211,6 +220,7 @@ export const GUIDE_COPY = {
   zodiac: { ask: "星座呢?", skip: "跳過", ack: (v: string) => `${v}座。店也跟著調了一點。` },
   traits: { ask: "哪幾個詞最像你?可以多選,選好按「好了」。", done: "好了", skip: "跳過", ack: (vs: string[]) => `${vs.join("、")},懂了。` },
   style: { ask: "你喜歡逛哪種店?", auto: "你幫我決定", autoAck: "好,交給我依你的個性決定。", ack: (v: string) => `好,就照「${v}」來。` },
+  vibe: { ask: "想要什麼風格?", auto: "你幫我決定", autoAck: "好,依你的個性挑一個。", ack: (v: string) => `「${v}」,換上了。` },
   scheme: { ask: "最後,亮一點還是暗一點?", light: "亮一點", dark: "暗一點", auto: "都可以", ack: (v: string) => `${v},好。` },
   skipped: "沒關係,跳過。",
   done: "店已經照你的樣子排好了。現在想找什麼?直接說就好:預算、送誰、什麼場合都可以。",

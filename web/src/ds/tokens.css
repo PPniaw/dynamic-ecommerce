@@ -112,6 +112,29 @@
   --head-tracking: 0.02em;
 }
 
+/* Vibe faces (shared/vibes.ts). Latin display fonts; CJK falls back to Noto. */
+.theme-root[data-fonts="retro"] {
+  --font-body: var(--cjk-sans);
+  --font-head: "Abril Fatface", var(--cjk-serif);
+  --font-acc: "Abril Fatface", var(--cjk-serif);
+  --head-weight: 700;
+  --head-tracking: 0.01em;
+}
+.theme-root[data-fonts="y2k"] {
+  --font-body: var(--cjk-sans);
+  --font-head: "Unbounded Variable", "Unbounded", var(--cjk-sans);
+  --font-acc: "Unbounded Variable", "Unbounded", var(--cjk-sans);
+  --head-weight: 700;
+  --head-tracking: -0.01em;
+}
+.theme-root[data-fonts="scifi"] {
+  --font-body: "Geist Variable", "Geist", var(--cjk-sans);
+  --font-head: "Orbitron Variable", "Orbitron", var(--cjk-sans);
+  --font-acc: "Orbitron Variable", "Orbitron", var(--cjk-sans);
+  --head-weight: 700;
+  --head-tracking: 0.06em;
+}
+
 /* ---- type scale ----------------------------------------------------------
  * Body sizes follow Medusa's named scale. Headings are fluid (Horizon): they
  * shrink with the viewport but never below the next level down.
@@ -181,6 +204,62 @@
   [data-hover="scale"] .card-hover:hover { transform: scale(1.03); }
   [data-hover="zoom"] .card-hover:hover .card-img { transform: scale(1.045); }
 }
+
+/* ---- vibes ---------------------------------------------------------------
+ * The look laid over any archetype (shared/vibes.ts). Pure decoration: colours
+ * come from the palette roles, so contrast stays what derive.ts guaranteed.
+ * Big headings get gradient text only on page / subtle surfaces — never on an
+ * accent or inverse band, where the gradient would run into the background.
+ */
+:root { --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E"); }
+
+/* 復古:紙張顆粒、印刷錯位陰影、照片微泛黃。 */
+.theme-root[data-vibe="retro"] { position: relative; }
+.theme-root[data-vibe="retro"]::before {
+  content: ""; position: fixed; inset: 0; z-index: 60; pointer-events: none;
+  background-image: var(--grain); opacity: 0.09; mix-blend-mode: multiply;
+}
+.theme-root[data-vibe="retro"][data-scheme="dark"]::before { mix-blend-mode: screen; opacity: 0.06; }
+.theme-root[data-vibe="retro"] :where(.heading) {
+  text-shadow: 0.06em 0.06em 0 color-mix(in oklab, var(--accent) 38%, transparent);
+}
+.theme-root[data-vibe="retro"] img { filter: sepia(0.28) saturate(0.85) contrast(1.05); }
+
+/* Y2K 韓系:粉紫光暈背景、漸層大標、亮面卡片、小星星。 */
+.theme-root[data-vibe="y2k"] {
+  background-image:
+    radial-gradient(60rem 36rem at 8% -8%, color-mix(in oklab, var(--accent) 16%, transparent), transparent 62%),
+    radial-gradient(52rem 34rem at 108% 6%, color-mix(in oklab, #7aa2ff 20%, transparent), transparent 62%);
+  background-attachment: fixed;
+}
+.theme-root[data-vibe="y2k"] :where(.heading.type-display, .heading.type-h1, .heading.type-h2):not(:where([data-surface="accent"], [data-surface="inverse"]) *) {
+  background: linear-gradient(95deg, var(--fg) 10%, var(--accent) 60%, color-mix(in oklab, #7a6cff 70%, var(--fg))) ;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.theme-root[data-vibe="y2k"] :where(.heading.type-display, .heading.type-h1)::after {
+  content: " ✦"; font-size: 0.5em; vertical-align: super; color: var(--accent); -webkit-text-fill-color: var(--accent);
+}
+.theme-root[data-vibe="y2k"] .card-hover {
+  box-shadow: inset 0 1px 0 color-mix(in oklab, white 70%, transparent), 0 6px 20px color-mix(in oklab, var(--accent) 12%, transparent);
+}
+
+/* 科幻金屬:網格、鉻色標題、青光邊框。 */
+.theme-root[data-vibe="scifi"] {
+  background-image:
+    linear-gradient(color-mix(in oklab, var(--accent) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--accent) 7%, transparent) 1px, transparent 1px),
+    radial-gradient(80rem 40rem at 50% -10%, color-mix(in oklab, var(--accent) 12%, transparent), transparent 70%);
+  background-size: 48px 48px, 48px 48px, auto;
+  background-attachment: fixed;
+}
+.theme-root[data-vibe="scifi"] :where(.heading.type-display, .heading.type-h1, .heading.type-h2):not(:where([data-surface="accent"], [data-surface="inverse"]) *) {
+  background: linear-gradient(180deg, var(--fg) 0%, color-mix(in oklab, var(--fg) 55%, var(--accent)) 58%, var(--fg) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.theme-root[data-vibe="scifi"] .card-hover {
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--accent) 35%, transparent), 0 0 24px color-mix(in oklab, var(--accent) 10%, transparent);
+}
+.theme-root[data-vibe="scifi"] img { filter: saturate(0.75) contrast(1.08); }
 
 /* ---- motion -------------------------------------------------------------- */
 

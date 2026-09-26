@@ -14,7 +14,7 @@ type Preset = Pick<Decision, "theme" | "card" | "header" | "listing" | "product"
 export const ARCHETYPE_PRESETS: Record<Archetype, Preset> = {
   // 文藝收藏者:慢、故事、手作。雜誌跨頁、大圖、襯線、大量留白。
   editorial: {
-    theme: { palette: "oat", scheme: "light", fonts: "editorial", typeScale: "display", headingCase: "none", radius: "sharp", density: "airy", pageWidth: "normal", hoverEffect: "zoom", elevation: "flat" },
+    theme: { palette: "oat", scheme: "light", fonts: "editorial", typeScale: "display", headingCase: "none", radius: "sharp", density: "airy", pageWidth: "normal", hoverEffect: "zoom", elevation: "flat", vibe: "none" },
     card: { variant: "standard", imageRatio: "portrait", hover: "second_image", quickAdd: false, info: "stacked", badgePosition: "bottom-left", frame: "bare" },
     header: { variant: "centered", announcement: "maker_week" },
     hero: { variant: "spread", headline: "made_by_hand" },
@@ -29,7 +29,7 @@ export const ARCHETYPE_PRESETS: Record<Archetype, Preset> = {
   },
   // 熱情探險家:好奇、衝動、喜歡驚喜。貼紙、拼貼、跑馬燈、圓體。
   collage: {
-    theme: { palette: "blush", scheme: "light", fonts: "friendly", typeScale: "display", headingCase: "none", radius: "pill", density: "normal", pageWidth: "wide", hoverEffect: "lift", elevation: "soft" },
+    theme: { palette: "blush", scheme: "light", fonts: "friendly", typeScale: "display", headingCase: "none", radius: "pill", density: "normal", pageWidth: "wide", hoverEffect: "lift", elevation: "soft", vibe: "none" },
     card: { variant: "sticker", imageRatio: "square", hover: "zoom", quickAdd: true, info: "stacked", badgePosition: "top-right", frame: "card" },
     header: { variant: "bubbly", announcement: "new_arrivals" },
     hero: { variant: "collage", headline: "weekend_adventure" },
@@ -45,7 +45,7 @@ export const ARCHETYPE_PRESETS: Record<Archetype, Preset> = {
   },
   // 理性比較者:規格、索引、資訊密度。表格、編號、銳角、無裝飾。
   index: {
-    theme: { palette: "ink", scheme: "light", fonts: "modern", typeScale: "compact", headingCase: "uppercase", radius: "sharp", density: "tight", pageWidth: "wide", hoverEffect: "none", elevation: "flat" },
+    theme: { palette: "ink", scheme: "light", fonts: "modern", typeScale: "compact", headingCase: "uppercase", radius: "sharp", density: "tight", pageWidth: "wide", hoverEffect: "none", elevation: "flat", vibe: "none" },
     card: { variant: "standard", imageRatio: "square", hover: "none", quickAdd: true, info: "row", badgePosition: "top-left", frame: "bare" },
     header: { variant: "bar", announcement: "none" },
     hero: { variant: "ledger", headline: "the_index" },
@@ -59,7 +59,7 @@ export const ARCHETYPE_PRESETS: Record<Archetype, Preset> = {
   },
   // 務實比價者:趕時間、看價格。倒數、大價格、密集格線、到處都能加購物車。
   deal: {
-    theme: { palette: "night", scheme: "dark", fonts: "modern", typeScale: "normal", headingCase: "uppercase", radius: "soft", density: "tight", pageWidth: "wide", hoverEffect: "lift", elevation: "soft" },
+    theme: { palette: "night", scheme: "dark", fonts: "modern", typeScale: "normal", headingCase: "uppercase", radius: "soft", density: "tight", pageWidth: "wide", hoverEffect: "lift", elevation: "soft", vibe: "none" },
     card: { variant: "deal", imageRatio: "square", hover: "none", quickAdd: true, info: "stacked", badgePosition: "top-left", frame: "card" },
     header: { variant: "utility", announcement: "flash_sale" },
     hero: { variant: "flash", headline: "deals_now" },

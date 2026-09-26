@@ -1,5 +1,5 @@
 // Chat with the store. A visitor we know nothing about is first guided through
-// who they are (MBTI, zodiac, traits, store style, light/dark — the page
+// who they are (MBTI, zodiac, traits, store type, vibe, light/dark — the page
 // reshapes after each answer), then what they're looking for.
 // What the shopper says becomes an update of their
 // profile (shared/chat.ts); the store re-decides at once and the answer shows
@@ -9,13 +9,13 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { productPath } from "../../../shared/catalog";
 import type { ChatChange, ChatResult, ChatTurn } from "../../../shared/chat";
-import { ARCHETYPES, type UserPrefs } from "../../../shared/decision";
+import { ARCHETYPES, VIBES, type UserPrefs } from "../../../shared/decision";
 import { isVisitor, MBTI_TYPES, nothingStated, TRAITS, ZODIACS, type Persona, type Trait } from "../../../shared/personas";
 import { Price } from "../ds/ui/Price";
 import { ProductImage } from "../ds/ui/ProductImage";
 import { cn } from "../ds/ui/cn";
 import { api } from "./backend";
-import { ARCHETYPE_LABEL, CHAT_COPY, CHAT_UI, changeLabel, GUIDE_COPY } from "./copy";
+import { ARCHETYPE_LABEL, CHAT_COPY, CHAT_UI, changeLabel, GUIDE_COPY, VIBE_LABEL } from "./copy";
 import { useStore } from "./StoreContext";
 
 interface Msg { role: "user" | "assistant"; text: string; changes?: ChatChange[]; productIds?: string[]; by?: ChatResult["understoodBy"] }
@@ -26,8 +26,8 @@ interface Msg { role: "user" | "assistant"; text: string; changes?: ChatChange[]
 // and morphs — the visitor watches their answer reshape the page. After the
 // last step the chat is free text, read by the AI as before.
 
-type Step = "mbti" | "zodiac" | "traits" | "style" | "scheme";
-const STEPS: Step[] = ["mbti", "zodiac", "traits", "style", "scheme"];
+type Step = "mbti" | "zodiac" | "traits" | "style" | "vibe" | "scheme";
+const STEPS: Step[] = ["mbti", "zodiac", "traits", "style", "vibe", "scheme"];
 const askOf = (s: Step) => GUIDE_COPY[s].ask;
 
 // A visitor who hasn't told us anything yet gets the guided start (guesses from
@@ -161,6 +161,15 @@ function ChatPanel({ userId, chat, setChat, onClose }: { userId: string; chat: C
               ))}
               <button type="button" className={chip} onClick={() => void answer(GUIDE_COPY.style.auto, (p) => ({ ...p, archetype: "auto" }), GUIDE_COPY.style.autoAck)}>{GUIDE_COPY.style.auto}</button>
             </>}
+            {STEPS[step] === "vibe" && <>
+              {VIBES.map((v) => (
+                <button key={v} type="button" className={cn(chip, "w-full rounded-control py-2 text-left")}
+                  onClick={() => void answer(VIBE_LABEL[v].name, (p) => ({ ...p, vibe: v }), GUIDE_COPY.vibe.ack(VIBE_LABEL[v].name))}>
+                  <span className="font-semibold">{VIBE_LABEL[v].name}</span> <span className="text-fg-muted">— {VIBE_LABEL[v].hint}</span>
+                </button>
+              ))}
+              <button type="button" className={chip} onClick={() => void answer(GUIDE_COPY.vibe.auto, (p) => ({ ...p, vibe: "auto" }), GUIDE_COPY.vibe.autoAck)}>{GUIDE_COPY.vibe.auto}</button>
+            </>}
             {STEPS[step] === "scheme" && (["light", "dark", "auto"] as const).map((v) => (
               <button key={v} type="button" className={chip} onClick={() => void answer(GUIDE_COPY.scheme[v], (p) => ({ ...p, scheme: v }), GUIDE_COPY.scheme.ack(GUIDE_COPY.scheme[v]))}>{GUIDE_COPY.scheme[v]}</button>
             ))}
@@ -192,7 +201,7 @@ function ChatPanel({ userId, chat, setChat, onClose }: { userId: string; chat: C
 
 // Guide answers are user bubbles too; product prompts show until the first real message.
 const GUIDE_ANSWERS = new Set<string>([...MBTI_TYPES, ...ZODIACS.map((z) => `${z}座`), GUIDE_COPY.mbti.skip, GUIDE_COPY.zodiac.skip, GUIDE_COPY.traits.skip,
-  ...ARCHETYPES.map((a) => `${ARCHETYPE_LABEL[a].name}店`), GUIDE_COPY.style.auto, GUIDE_COPY.scheme.light, GUIDE_COPY.scheme.dark, GUIDE_COPY.scheme.auto]);
+  ...ARCHETYPES.map((a) => `${ARCHETYPE_LABEL[a].name}店`), GUIDE_COPY.style.auto, ...VIBES.map((v) => VIBE_LABEL[v].name), GUIDE_COPY.scheme.light, GUIDE_COPY.scheme.dark, GUIDE_COPY.scheme.auto]);
 const isGuideAnswer = (m: Msg) => GUIDE_ANSWERS.has(m.text) || m.text.split("、").every((t) => (TRAITS as readonly string[]).includes(t));
 
 function Bubble({ role, children }: { role: Msg["role"]; children: React.ReactNode }) {

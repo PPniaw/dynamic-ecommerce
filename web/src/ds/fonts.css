@@ -4,6 +4,10 @@
 @import "@fontsource-variable/noto-sans-tc";
 @import "@fontsource-variable/noto-serif-tc";
 @import "@fontsource-variable/fraunces";
+/* Vibe display faces (Latin only; CJK falls back to the Noto families). */
+@import "@fontsource/abril-fatface";
+@import "@fontsource-variable/unbounded";
+@import "@fontsource-variable/orbitron";
 /* CJK fonts: import the weight files (400.css / 700.css), which carry the full
    character set split into unicode-range chunks — the browser only downloads
    the chunks a page uses. The `chinese-traditional-*.css` files are a single

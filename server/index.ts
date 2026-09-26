@@ -3,13 +3,14 @@ import { createServer } from "node:http";
 import { existsSync } from "node:fs";
 import { WebSocketServer, type WebSocket } from "ws";
 import type { ActivityItem, DecisionEnvelope, EventType, ServerMessage, UserPrefs } from "../shared/decision.ts";
-import { ARCHETYPES } from "../shared/decision.ts";
+import { ARCHETYPES, VIBES } from "../shared/decision.ts";
 import { SHOP_CATEGORIES } from "../shared/catalog.ts";
 import { INTERESTS, MBTI_TYPES, TRAITS, ZODIACS, type Persona } from "../shared/personas.ts";
 import {
   checkout, CheckoutError, createUser, getCart, getProduct, getUser, listOrders, listPrices,
   listProducts, listUsers, logEvent, saveDecision, setCartQty, setPrefs, updateProduct,
 } from "./db.ts";
+import { isVisitor } from "../shared/personas.ts";
 import { applyChatUpdate, understandByKeywords, type ChatContext, type ChatResult, type ChatTurn, type ChatUpdate } from "../shared/chat.ts";
 import { chatWithClaude, claudeEnabled } from "./decision/claude.ts";
 import { decide, decideWithRules, llmEnabled, sanitize, type DecisionInput } from "./decision/index.ts";
@@ -27,6 +28,33 @@ const sockets = new Map<string, Set<WebSocket>>();
 const send = (ws: WebSocket, m: ServerMessage) => ws.readyState === ws.OPEN && ws.send(JSON.stringify(m));
 const toUser = (userId: string, m: ServerMessage) => sockets.get(userId)?.forEach((ws) => send(ws, m));
 const toAll = (m: ServerMessage) => sockets.forEach((set) => set.forEach((ws) => send(ws, m)));
+
+// ---- AI budget ---------------------------------------------------------------
+//
+// Every decision, chat line and trait guess can cost an AI call. A public demo
+// must not let one visitor (or a script) burn the TypeSafe / Anthropic quota:
+// per-shopper and global per-minute caps; over them we fall back to the rule
+// engine / keyword reader, which cost nothing, so the store keeps working.
+// (Per shopper, not per IP: behind Vite's proxy and Tailscale Funnel every
+// request comes from 127.0.0.1.)
+
+const hits = new Map<string, number[]>();
+function allow(key: string, limit: number, windowMs: number): boolean {
+  const now = Date.now();
+  const recent = (hits.get(key) ?? []).filter((t) => now - t < windowMs);
+  if (recent.length >= limit) { hits.set(key, recent); return false; }
+  recent.push(now);
+  hits.set(key, recent);
+  return true;
+}
+const AI_PER_SHOPPER_PER_MIN = Number(process.env.SHOP_AI_PER_SHOPPER_PER_MIN ?? 30);
+const AI_GLOBAL_PER_MIN = Number(process.env.SHOP_AI_GLOBAL_PER_MIN ?? 200);
+function aiAllowed(userId: string): boolean {
+  // Check the shopper first so one busy shopper can't use up the global budget alone.
+  const ok = allow(`ai:${userId}`, AI_PER_SHOPPER_PER_MIN, 60_000) && allow("ai:*", AI_GLOBAL_PER_MIN, 60_000);
+  if (!ok) console.warn(`[ai] budget exceeded for ${userId}; using rules`);
+  return ok;
+}
 
 // ---- decision scheduling ---------------------------------------------------
 //
@@ -86,7 +114,7 @@ async function maybeInfer(userId: string, trigger: string) {
   let probs: Awaited<ReturnType<typeof inferTraitsWithTypeSafe>>;
   let by = "rules";
   try {
-    if (typesafeEnabled()) { probs = blend(await inferTraitsWithTypeSafe(summary), inferTraitsByRules(summary)); by = "typesafe+rules"; }
+    if (typesafeEnabled() && aiAllowed(userId)) { probs = blend(await inferTraitsWithTypeSafe(summary), inferTraitsByRules(summary)); by = "typesafe+rules"; }
     else probs = inferTraitsByRules(summary);
   } catch (err) {
     console.warn("[infer] TypeSafe failed, using rules:", (err as Error).message);
@@ -109,7 +137,7 @@ async function run(userId: string, trigger: string): Promise<DecisionEnvelope | 
     await maybeInfer(userId, trigger).catch((err) => console.warn("[infer]", (err as Error).message));
     const input = buildInput(userId, trigger);
     if (!input) return;
-    const env = await decide(input);
+    const env = await decide(input, { llm: aiAllowed(userId) });
     latest.set(userId, env);
     saveDecision(userId, env.source, trigger, env.latencyMs, env.decision);
     toUser(userId, { type: "decision", envelope: env });
@@ -185,9 +213,19 @@ setInterval(marketTick, Number(process.env.MARKET_TICK_MS ?? 2500));
 
 app.get("/api/meta", (_req, res) => { res.json({ claude: llmEnabled() }); });
 app.get("/api/products", (_req, res) => { res.json(listProducts()); });
-app.get("/api/users", (_req, res) => { res.json(listUsers()); });
+// Only the demo shoppers are listed. Visitors' ids are random and never
+// listed, so nobody can pick someone else's "你" to act as them (there is no
+// login in the demo; an id you don't know is the only protection).
+app.get("/api/users", (_req, res) => { res.json(listUsers().filter((u) => !isVisitor(u.id))); });
+app.get("/api/users/:id", (req, res) => {
+  const u = getUser(req.params.id);
+  if (!u) { res.status(404).end(); return; }
+  res.json(u);
+});
 
 app.post("/api/users", (req, res) => {
+  // Each new visitor is a DB row: cap how fast they can be made.
+  if (!allow("create-user", 120, 60 * 60_000)) { res.status(429).end(); return; }
   const name = String(req.body?.name ?? "").trim().slice(0, 30) || "新朋友";
   res.json(createUser(name));
 });
@@ -212,6 +250,7 @@ function parsePrefs(b: Record<string, unknown>): UserPrefs {
   return {
     archetype: oneOf(["auto", ...ARCHETYPES] as const, b.archetype) ?? "auto",
     scheme: oneOf(["auto", "light", "dark"] as const, b.scheme) ?? "auto",
+    vibe: oneOf(["auto", ...VIBES] as const, b.vibe) ?? "auto",
     budget: b.budget != null && Number.isFinite(budget) && budget > 0 ? Math.round(budget) : null,
     categories: someOf(SHOP_CATEGORIES, b.categories),
     need: String(b.need ?? "").slice(0, 200),
@@ -257,7 +296,9 @@ app.post("/api/users/:id/chat", async (req, res) => {
   let understood: { update: ChatUpdate; reply: string | null } | undefined;
   let by: ChatResult["understoodBy"] = "rules";
   try {
-    if (claudeEnabled()) { understood = await chatWithClaude(ctx, history, text); by = "claude"; }
+    // Over budget → the keyword reader below (free, instant) instead of an AI call.
+    if (!aiAllowed(user.id)) { /* keywords */ }
+    else if (claudeEnabled()) { understood = await chatWithClaude(ctx, history, text); by = "claude"; }
     else if (typesafeEnabled()) { understood = { update: await understandWithTypeSafe(ctx, history, text), reply: null }; by = "typesafe"; }
   } catch (err) {
     console.warn("[chat] AI failed, using keywords:", (err as Error).message);

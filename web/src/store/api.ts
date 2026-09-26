@@ -12,6 +12,7 @@ export interface Order { id: number; total: number; ts: number; items: { product
 export const api = {
   meta: () => fetch("/api/meta").then(j<{ claude: boolean }>),
   users: () => fetch("/api/users").then(j<User[]>),
+  user: (id: string) => fetch(`/api/users/${encodeURIComponent(id)}`).then(j<User>),
   createUser: (name: string) => fetch("/api/users", json("POST", { name })).then(j<User>),
   setPrefs: (id: string, prefs: UserPrefs) => fetch(`/api/users/${id}/prefs`, json("PUT", prefs)).then(j<User>),
   chat: (id: string, text: string, history: ChatTurn[]) => fetch(`/api/users/${id}/chat`, json("POST", { text, history })).then(j<ChatResult>),

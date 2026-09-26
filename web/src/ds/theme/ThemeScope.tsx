@@ -12,7 +12,7 @@ import type { PaletteName } from "./palettes";
 export interface ThemeOptions {
   palette: PaletteName;
   scheme: Scheme;
-  fonts: "modern" | "editorial" | "friendly" | "literary";
+  fonts: "modern" | "editorial" | "friendly" | "literary" | "retro" | "y2k" | "scifi";
   typeScale: "compact" | "normal" | "display";
   headingCase: "none" | "uppercase";
   radius: "sharp" | "soft" | "round" | "pill";
@@ -20,11 +20,13 @@ export interface ThemeOptions {
   pageWidth: "narrow" | "normal" | "wide";
   hoverEffect: "none" | "lift" | "scale" | "zoom";
   elevation: "flat" | "soft";
+  // Look laid over the layout: textures, heading and card treatments (tokens.css).
+  vibe: "none" | "retro" | "y2k" | "scifi";
 }
 
 export const DEFAULT_THEME: ThemeOptions = {
   palette: "sand", scheme: "light", fonts: "editorial", typeScale: "normal", headingCase: "none",
-  radius: "soft", density: "normal", pageWidth: "normal", hoverEffect: "zoom", elevation: "flat",
+  radius: "soft", density: "normal", pageWidth: "normal", hoverEffect: "zoom", elevation: "flat", vibe: "none",
 };
 
 const Ctx = createContext<ThemeOptions>(DEFAULT_THEME);
@@ -46,6 +48,7 @@ export function ThemeScope({ theme, children, className }: { theme: ThemeOptions
         data-width={theme.pageWidth}
         data-hover={theme.hoverEffect}
         data-elevation={theme.elevation}
+        data-vibe={theme.vibe}
       >
         {children}
       </div>

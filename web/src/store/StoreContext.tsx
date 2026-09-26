@@ -12,7 +12,7 @@ import { flushSync } from "react-dom";
 import type { Product } from "../../../shared/catalog";
 import type { ActivityItem, CartLine, DecisionEnvelope, ServerMessage, User, UserPrefs } from "../../../shared/decision";
 import { particleMorph } from "../ds/fx/particleMorph";
-import { isVisitor, VISITOR_NAME } from "../../../shared/personas";
+import { VISITOR_NAME } from "../../../shared/personas";
 import { api, openChannel } from "./backend";
 
 // Two remembered ids per browser: this browser's own visitor ("你", created
@@ -91,15 +91,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     api.meta().then((m) => setClaude(m.claude)).catch(() => {});
     void (async () => {
-      const all = await api.users();
-      let visitor = all.find((u) => u.id === read(VISITOR_KEY));
+      // The list holds only the demo shoppers; our own visitor is fetched by its id.
+      const demo = await api.users();
+      const saved = read(VISITOR_KEY);
+      let visitor = saved ? await api.user(saved).catch(() => undefined) : undefined;
       if (!visitor) {
         // First visit (or the server forgot us): our own "你".
         try { const me = await api.createUser(VISITOR_NAME); write(VISITOR_KEY, me.id); visitor = me; }
-        catch { visitor = all.find((u) => u.id === "u_new"); }
+        catch { visitor = await api.user("u_new").catch(() => undefined); }
       }
-      // Other browsers' visitors are not ours to show.
-      const demo = all.filter((u) => !isVisitor(u.id));
       setUsers(visitor ? [visitor, ...demo] : demo);
       const cur = read(USER_KEY);
       setUserId(cur && (cur === visitor?.id || demo.some((u) => u.id === cur)) ? cur : visitor?.id ?? demo[0]?.id);

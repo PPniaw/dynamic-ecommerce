@@ -15,7 +15,12 @@ import type { Persona } from "./personas.ts";
 export const ARCHETYPES = ["editorial", "collage", "index", "deal"] as const;
 export type Archetype = (typeof ARCHETYPES)[number];
 
-export const PALETTE_NAMES = ["ink", "sand", "sage", "blush", "night", "oat"] as const;
+export const PALETTE_NAMES = ["ink", "sand", "sage", "blush", "night", "oat", "retro", "y2k", "metal"] as const;
+
+// The *feel* laid over any archetype: palette, type, texture, heading and card
+// treatments (tokens.css [data-vibe]). Archetype = layout; vibe = look.
+export const VIBES = ["none", "retro", "y2k", "scifi"] as const;
+export type Vibe = (typeof VIBES)[number];
 export const SURFACES = ["page", "subtle", "inverse", "accent"] as const;
 
 // What a section is *for* — decides its title (copy.ts) and what goes in it.
@@ -41,7 +46,7 @@ export const SIGNALS = [
 export const ThemeSchema = z.object({
   palette: z.enum(PALETTE_NAMES),
   scheme: z.enum(["light", "dark"]),
-  fonts: z.enum(["modern", "editorial", "friendly", "literary"]),
+  fonts: z.enum(["modern", "editorial", "friendly", "literary", "retro", "y2k", "scifi"]),
   typeScale: z.enum(["compact", "normal", "display"]),
   headingCase: z.enum(["none", "uppercase"]),
   radius: z.enum(["sharp", "soft", "round", "pill"]),
@@ -49,6 +54,7 @@ export const ThemeSchema = z.object({
   pageWidth: z.enum(["narrow", "normal", "wide"]),
   hoverEffect: z.enum(["none", "lift", "scale", "zoom"]),
   elevation: z.enum(["flat", "soft"]),
+  vibe: z.enum(VIBES),
 });
 
 export const CardSchema = z.object({
@@ -111,6 +117,7 @@ export interface DecisionEnvelope {
 export interface UserPrefs {
   archetype: "auto" | Archetype;
   scheme: "auto" | "light" | "dark";
+  vibe: "auto" | Vibe;
   budget: number | null;
   categories: (typeof SHOP_CATEGORIES)[number][];
   // Free-form need, e.g. "送同事的生日禮物". Input to the model; output stays enums.

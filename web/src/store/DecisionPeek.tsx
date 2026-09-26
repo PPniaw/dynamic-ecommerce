@@ -2,7 +2,7 @@
 // decision is waiting — a button to apply it now instead of on the next page.
 import { useState } from "react";
 import { cn } from "../ds/ui/cn";
-import { ARCHETYPE_LABEL, SIGNAL_LABEL, SOURCE_LABEL, SOURCE_SHORT, TRIGGER_LABEL } from "./copy";
+import { ARCHETYPE_LABEL, SIGNAL_LABEL, SOURCE_LABEL, SOURCE_SHORT, TRIGGER_LABEL, VIBE_LABEL } from "./copy";
 import { STATIC } from "./backend";
 import { useStore } from "./StoreContext";
 
@@ -22,7 +22,7 @@ export function DecisionPeek() {
       {open && (
         <div className="w-80 max-w-full animate-rise-in rounded-card bg-base p-4 shadow-flyout ring-1 ring-line">
           <p className="txt-xsmall text-fg-muted">這家店現在是</p>
-          <p className="heading type-h3">「{ARCHETYPE_LABEL[d.archetype].name}」店</p>
+          <p className="heading type-h3">「{ARCHETYPE_LABEL[d.archetype].name}」店{d.theme.vibe && d.theme.vibe !== "none" && <span className="txt-medium text-fg-muted"> × {VIBE_LABEL[d.theme.vibe].name}</span>}</p>
           <p className="mt-1 txt-small text-fg-subtle">
             由{SOURCE_LABEL[envelope.source]}決定 · 因為「{TRIGGER_LABEL[envelope.trigger] ?? envelope.trigger}」· {envelope.latencyMs}ms
           </p>
@@ -39,7 +39,7 @@ export function DecisionPeek() {
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
         className="flex cursor-pointer items-center gap-2 rounded-full bg-base px-3.5 py-2 txt-small shadow-flyout ring-1 ring-line">
         <span className={cn("h-2 w-2 rounded-full", !connected ? "bg-danger" : deciding ? "animate-pulse bg-warning" : "bg-success")} />
-        {deciding ? "AI 正在重新安排…" : <>{ARCHETYPE_LABEL[d.archetype].name}店<span className="hidden sm:inline"> · {SOURCE_SHORT[envelope.source]}</span></>}
+        {deciding ? "AI 正在重新安排…" : <>{ARCHETYPE_LABEL[d.archetype].name}店{d.theme.vibe && d.theme.vibe !== "none" && ` × ${VIBE_LABEL[d.theme.vibe].name}`}<span className="hidden sm:inline"> · {SOURCE_SHORT[envelope.source]}</span></>}
       </button>
     </div>
   );

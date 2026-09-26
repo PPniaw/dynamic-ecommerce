@@ -18,6 +18,7 @@
 // (confidence < MIN_CONFIDENCE) falls back to the archetype's preset.
 import { choice, noul, TypeSafeClient, type ChoiceQuestion, type JsonValue, type Questions } from "@typesafe-ai/sdk";
 import { ARCHETYPE_PRESETS } from "../../shared/archetypes.ts";
+import { applyVibe, namedVibe } from "../../shared/vibes.ts";
 import { SHOP_CATEGORIES, type ShopCategory } from "../../shared/catalog.ts";
 import { namedArchetype, namedScheme, understandByKeywords, type ChatContext, type ChatTurn, type ChatUpdate } from "../../shared/chat.ts";
 import { INFERABLE, observations, type BehaviourSummary, type InferableTrait } from "../../shared/infer.ts";
@@ -57,6 +58,15 @@ const STYLE = {
     blush: "Pink and plum. Soft, romantic, playful: 天秤 雙魚 巨蟹, feelers, the curious and expressive.",
     night: "Charcoal and amber. Bold, intense, nocturnal: 天蠍 摩羯 牡羊, night owls, deal hunters.",
     oat: "Oatmeal and olive, like old paper. Quiet, nostalgic, literary: 巨蟹 雙魚 金牛, readers, 念舊, tea.",
+    retro: "Cream and burnt orange, 70s print. Nostalgic, warm, vintage lovers: 金牛 巨蟹, 念舊.",
+    y2k: "Lilac and hot pink, Y2K / K-pop. Trendy, playful, social: 雙子 射手 獅子, extroverts.",
+    metal: "Steel and cyan. Futuristic, techy, cool: 水瓶 天蠍, thinkers, night owls.",
+  }),
+  vibe: ask("Which overall vibe should the store have (on top of its layout)?", {
+    none: "Clean and unstyled. No strong aesthetic; lets the products speak.",
+    retro: "Retro / vintage: 70s–80s print, grain texture, bold serif, warm cream and orange. Nostalgic, sentimental, slow: 念舊 慢活, earth and water signs (金牛 巨蟹), readers, tea and ceramics people.",
+    y2k: "Y2K Korean pop: pastel pink-lilac gradients, bubbly rounded type, glossy pills, sparkle. Trendy, social, playful, impulsive: extroverted feelers (ENFP ESFP), 雙子 射手, festivals, photography.",
+    scifi: "Sci-fi metal: dark steel, cyan glow, grid lines, futuristic uppercase type, sharp corners. Analytical, techy, design-minded, night owls: xNTx, 水瓶, 理性 重設計, pens and gadgets.",
   }),
   scheme: ask("Light or dark page?", {
     light: "Light page. Daytime, airy, gentle.",
@@ -67,6 +77,9 @@ const STYLE = {
     editorial: "Magazine serif. Cultured, thoughtful, story-loving.",
     friendly: "Rounded, bubbly type. Extroverted, playful, warm: fire signs.",
     literary: "Hand-brushed Chinese (WenKai). Nostalgic, poetic, handmade: water signs, 念舊, calligraphy and tea people.",
+    retro: "Bold 70s display serif. Vintage, warm, nostalgic.",
+    y2k: "Wide rounded Y2K display. Trendy, playful, K-pop.",
+    scifi: "Futuristic geometric display. Techy, sci-fi, cool.",
   }),
   typeScale: ask("How big should headings be?", {
     compact: "Small, information-first. Analytical or hurried shoppers.",
@@ -209,6 +222,7 @@ export async function decideWithTypeSafe(input: DecisionInput): Promise<Decision
   // Fixed by the shopper → don't ask.
   if (prefs.archetype !== "auto") delete questions.archetype;
   if (prefs.scheme !== "auto") delete questions.scheme;
+  if (prefs.vibe && prefs.vibe !== "auto") delete questions.vibe;
   for (const p of inStock) {
     questions[`want_${p.id}`] = noul({
       question: "Would this shopper want to see this product near the top of the shop?",
@@ -241,7 +255,9 @@ export async function decideWithTypeSafe(input: DecisionInput): Promise<Decision
 
   return {
     ...base,
-    theme: {
+    // A vibe pins palette / fonts / shape (shared/vibes.ts); the rest stays Jev's.
+    theme: applyVibe({
+      vibe: prefs.vibe && prefs.vibe !== "auto" ? prefs.vibe : or(pick("vibe"), base.theme.vibe),
       palette: or(pick("palette"), preset.theme.palette),
       // The shopper's explicit scheme was already applied by the rules.
       scheme: prefs.scheme !== "auto" ? prefs.scheme : or(pick("scheme"), base.theme.scheme),
@@ -253,7 +269,7 @@ export async function decideWithTypeSafe(input: DecisionInput): Promise<Decision
       pageWidth: or(pick("pageWidth"), preset.theme.pageWidth),
       hoverEffect: or(pick("hoverEffect"), preset.theme.hoverEffect),
       elevation: or(pick("elevation"), preset.theme.elevation),
-    },
+    }, prefs.scheme),
     card: {
       ...base.card,
       variant: or(pick("cardVariant"), preset.card.variant),
@@ -346,6 +362,7 @@ export async function understandWithTypeSafe(ctx: ChatContext, history: ChatTurn
     // A look asked for by name ("雜誌風一點") is taken literally; Jev judges the rest.
     scheme: namedScheme(text) ?? (sure("scheme") as ChatUpdate["scheme"]),
     archetype: namedArchetype(text) ?? (sure("archetype") as ChatUpdate["archetype"]),
+    vibe: namedVibe(text) ?? "keep",
     mbti: kw.mbti,
     zodiac: kw.zodiac,
   };

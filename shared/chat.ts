@@ -10,7 +10,8 @@
 // states prices or stock: the product cards under it render those from live data.
 import { z } from "zod/v4";
 import { SHOP_CATEGORIES, type ShopCategory } from "./catalog.ts";
-import { ARCHETYPES, type Archetype, type Profile, type UserPrefs } from "./decision.ts";
+import { ARCHETYPES, VIBES, type Archetype, type Profile, type UserPrefs, type Vibe } from "./decision.ts";
+import { namedVibe } from "./vibes.ts";
 import { declareTraits } from "./infer.ts";
 import { INTERESTS, MBTI_TYPES, TRAITS, ZODIACS, type Interest, type Trait } from "./personas.ts";
 
@@ -27,6 +28,7 @@ export const ChatUpdateSchema = z.object({
   need: z.string(),
   scheme: z.enum(["keep", "light", "dark"]),
   archetype: z.enum(["keep", "auto", ...ARCHETYPES]),
+  vibe: z.enum(["keep", "auto", ...VIBES]),
   // Only when the shopper says it outright.
   mbti: z.enum(["keep", ...MBTI_TYPES]),
   zodiac: z.enum(["keep", ...ZODIACS]),
@@ -34,7 +36,7 @@ export const ChatUpdateSchema = z.object({
 export type ChatUpdate = z.infer<typeof ChatUpdateSchema>;
 
 export const NO_UPDATE: ChatUpdate = {
-  traitsAdd: [], interestsAdd: [], categories: [], budget: "keep", need: "", scheme: "keep", archetype: "keep", mbti: "keep", zodiac: "keep",
+  traitsAdd: [], interestsAdd: [], categories: [], budget: "keep", need: "", scheme: "keep", archetype: "keep", vibe: "keep", mbti: "keep", zodiac: "keep",
 };
 
 export type ChatChange =
@@ -44,6 +46,7 @@ export type ChatChange =
   | { kind: "need"; value: string }
   | { kind: "scheme"; value: "light" | "dark" }
   | { kind: "archetype"; value: Archetype | "auto" }
+  | { kind: "vibe"; value: Vibe | "auto" }
   | { kind: "mbti" | "zodiac"; value: string };
 
 export interface ChatResult {
@@ -93,6 +96,7 @@ export function applyChatUpdate(prefs: UserPrefs, u: ChatUpdate): { prefs: UserP
   if (need && need !== prefs.need) { next.need = need; changes.push({ kind: "need", value: need }); }
   if (u.scheme !== "keep" && u.scheme !== prefs.scheme) { next.scheme = u.scheme; changes.push({ kind: "scheme", value: u.scheme }); }
   if (u.archetype !== "keep" && u.archetype !== prefs.archetype) { next.archetype = u.archetype; changes.push({ kind: "archetype", value: u.archetype }); }
+  if (u.vibe !== "keep" && u.vibe !== prefs.vibe) { next.vibe = u.vibe; changes.push({ kind: "vibe", value: u.vibe }); }
   // Said in chat = stated, not guessed; and a guess can't outlive its trait.
   const stated = declareTraits(next, u.traitsAdd);
   const inferred = (stated.persona.inferred ?? []).filter((t) => stated.persona.traits.includes(t));
@@ -158,6 +162,7 @@ export function understandByKeywords(text: string): ChatUpdate {
     need: /找|想要|需要|送|買/.test(text) ? text.slice(0, 60) : "",
     scheme: SCHEME_WORDS.dark.test(text) ? "dark" : SCHEME_WORDS.light.test(text) ? "light" : "keep",
     archetype: namedArchetype(text) ?? "keep",
+    vibe: namedVibe(text) ?? "keep",
     mbti: mbti ?? "keep",
     zodiac: zodiac ?? "keep",
   };
@@ -191,6 +196,7 @@ export function chatPrompt(ctx: ChatContext, history: ChatTurn[], text: string):
    - budget:"keep"、"none"(不限)或新台幣數字
    - need:具體購物需求,用他的話濃縮成 30 字內;沒有就 ""
    - scheme:"keep" | "light" | "dark"(嫌太亮 / 想要暗色才改)
+   - vibe(整體風格,疊在店型上):"keep" | "auto" | "none"(簡約)| "retro"(復古)| "y2k"(Y2K 韓系)| "scifi"(科幻金屬)。他提到風格才改
    - archetype:"keep" | "auto" | "editorial"(雜誌,慢、故事)| "collage"(拼貼,好玩、驚喜)| "index"(索引,規格比較)| "deal"(特賣,價格優先)。只有他的話明確指向另一種逛法才改
    - mbti、zodiac:他明講才填(${MBTI_TYPES.join("/")};${ZODIACS.join("/")}),否則 "keep"
 2. reply:用繁體中文回他 1–2 句,語氣${VOICE[ctx.archetype]}。說你幫他把店面怎麼調整了。
@@ -204,6 +210,16 @@ export function chatPrompt(ctx: ChatContext, history: ChatTurn[], text: string):
 購物車:${ctx.cart.join("、") || "空"}
 對話紀錄:${history.slice(-6).map((t) => `${t.role === "user" ? "顧客" : "店員"}:${t.text}`).join("\n") || "無"}
 顧客剛說:${text}`;
+}
+
+// The chat reply is the one piece of AI text a shopper sees. The prompt forbids
+// prices, discounts and stock, but a shopper can try to talk the model into
+// "everything is free today". Enforce it here: a reply that mentions money,
+// discounts, stock or links is dropped, and the store answers with its own copy.
+const UNSAFE_REPLY = /[$＄€¥£]|NT|台幣|新台幣|元|塊錢|\d+\s*(?:%|％|折)|免費|free|折扣|打折|優惠|折價|促銷|coupon|優惠碼|退款|庫存|剩下?\s*\d|最後\s*\d|https?:|www\.|<[a-z/!]/i;
+export function safeReply(text: string): string | null {
+  const t = text.trim().slice(0, 300);
+  return t && !UNSAFE_REPLY.test(t) ? t : null;
 }
 
 // Model output is untrusted: keep what parses, drop the rest.
@@ -220,6 +236,6 @@ export function parseChatAnswer(raw: unknown): { update: ChatUpdate; reply: stri
       (update as Record<string, unknown>)[k] = (u[k] as unknown[]).filter((x) => item.safeParse(x).success);
     }
   }
-  const reply = typeof o.reply === "string" && o.reply.trim() ? o.reply.trim().slice(0, 300) : null;
+  const reply = typeof o.reply === "string" ? safeReply(o.reply) : null;
   return { update, reply };
 }

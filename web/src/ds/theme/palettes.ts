@@ -38,6 +38,22 @@ export const PALETTES = {
     light: { bg: "#F6F3EC", soft: "#ECE6D8", fg: "#2E2A22", accent: "#66652A", line: "#DDD5C3" },
     dark: { bg: "#16140F", soft: "#211E17", fg: "#EFEADF", accent: "#B8B56A", line: "#36322A" },
   },
+  // Vibe palettes (shared/vibes.ts): each vibe pins its own.
+  retro: {
+    label: "復古 · 米黃焦橘",
+    light: { bg: "#F4EAD5", soft: "#EBDDBF", fg: "#3A2718", accent: "#B8461F", line: "#DCC9A3" },
+    dark: { bg: "#1E1812", soft: "#2A2119", fg: "#F2E3C6", accent: "#E8834A", line: "#3E3226" },
+  },
+  y2k: {
+    label: "Y2K · 粉紫亮面",
+    light: { bg: "#FDF3FF", soft: "#F4E2FF", fg: "#2A1747", accent: "#D6178A", line: "#E9D2FA" },
+    dark: { bg: "#150B26", soft: "#201338", fg: "#F7E9FF", accent: "#FF7AD1", line: "#35255C" },
+  },
+  metal: {
+    label: "金屬 · 鋼與青光",
+    light: { bg: "#EDF1F5", soft: "#DCE3EA", fg: "#0F151C", accent: "#0E7490", line: "#C7D0DA" },
+    dark: { bg: "#07090D", soft: "#10161E", fg: "#E4ECF3", accent: "#22D3EE", line: "#1E2935" },
+  },
 } satisfies Record<string, Palette>;
 
 export type PaletteName = keyof typeof PALETTES;

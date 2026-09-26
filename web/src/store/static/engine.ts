@@ -13,7 +13,7 @@ import { applyInferred, behaviourSummary, BEHAVIOUR_TRIGGERS, INFER_COOLDOWN_MS,
 import { applyChatUpdate, chatPrompt, parseChatAnswer, understandByKeywords, type ChatResult, type ChatTurn } from "../../../../shared/chat";
 import { decideWithRules } from "../../../../server/decision/rules";
 import { SEED_USERS } from "../../../../server/seed";
-import { VISITOR_NAME } from "../../../../shared/personas";
+import { isVisitor, VISITOR_NAME } from "../../../../shared/personas";
 import type { Order } from "../api";
 
 type Handler = (m: ServerMessage) => void;
@@ -31,10 +31,11 @@ const products = () => [...rows.values()].map(product);
 
 const PREFS_KEY = "llm-shop:static-prefs";
 const saved = (() => { try { return JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") as Record<string, UserPrefs>; } catch { return {}; } })();
-const users = new Map<string, User>(SEED_USERS.map((u) => [u.id, { id: u.id, name: u.name, prefs: saved[u.id] ?? u.prefs }]));
+// Saved prefs may predate newer fields (e.g. vibe): lay them over the defaults.
+const users = new Map<string, User>(SEED_USERS.map((u) => [u.id, { id: u.id, name: u.name, prefs: { ...u.prefs, ...saved[u.id] } }]));
 // Visitors created in this browser on earlier visits (their prefs were saved by id).
 const BLANK = SEED_USERS.find((u) => u.id === "u_new")!.prefs;
-for (const [id, prefs] of Object.entries(saved)) if (!users.has(id)) users.set(id, { id, name: VISITOR_NAME, prefs });
+for (const [id, prefs] of Object.entries(saved)) if (!users.has(id)) users.set(id, { id, name: VISITOR_NAME, prefs: { ...BLANK, ...prefs } });
 const persistPrefs = () => { try { localStorage.setItem(PREFS_KEY, JSON.stringify(Object.fromEntries([...users].map(([k, v]) => [k, v.prefs])))); } catch { /* ignore */ } };
 const events = new Map<string, ProfileEvent[]>();
 const carts = new Map<string, (CartLine)[]>();
@@ -171,7 +172,8 @@ const cartOf = (id: string) => carts.get(id) ?? [];
 
 export const api = {
   meta: async () => ({ claude: false }),
-  users: async () => [...users.values()],
+  users: async () => [...users.values()].filter((u) => !isVisitor(u.id)),
+  user: async (id: string) => { const u = users.get(id); if (!u) throw fail(404, null); return u; },
   createUser: async (name: string) => {
     const u: User = { id: `u_${Math.random().toString(36).slice(2, 10)}`, name, prefs: structuredClone(BLANK) };
     users.set(u.id, u);

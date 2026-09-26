@@ -5,12 +5,12 @@ import { Dialog, DialogBackdrop, DialogPanel, DialogTitle } from "@headlessui/re
 import { useEffect, useMemo, useRef, useState } from "react";
 import { pickArchetype, scoreArchetypes } from "../../../shared/archetypes";
 import { SHOP_CATEGORIES } from "../../../shared/catalog";
-import { ARCHETYPES, type Archetype, type User, type UserPrefs } from "../../../shared/decision";
+import { ARCHETYPES, VIBES, type Archetype, type User, type UserPrefs } from "../../../shared/decision";
 import { INTERESTS, isVisitor, TRAITS, ZODIACS, type MBTI } from "../../../shared/personas";
 import { ThemeScope, useTheme } from "../ds/theme/ThemeScope";
 import { Button } from "../ds/ui/Button";
 import { cn } from "../ds/ui/cn";
-import { ARCHETYPE_LABEL, CATEGORY_COPY, GUIDE_COPY, INFER_COPY } from "./copy";
+import { ARCHETYPE_LABEL, CATEGORY_COPY, GUIDE_COPY, INFER_COPY, VIBE_LABEL } from "./copy";
 import { useStore } from "./StoreContext";
 
 export function personaLine(u: User) {
@@ -182,6 +182,15 @@ function PersonaDialog({ open, onClose }: { open: boolean; onClose: () => void }
                     </div>
                   </Field>
                 </div>
+                <Field label="風格">
+                  <div className="flex flex-wrap gap-1.5">
+                    {(["auto", ...VIBES] as const).map((v) => (
+                      <button key={v} type="button" className={chip((draft.vibe ?? "auto") === v)} onClick={() => setDraft({ ...draft, vibe: v })}>
+                        {v === "auto" ? "交給 AI" : VIBE_LABEL[v].name}
+                      </button>
+                    ))}
+                  </div>
+                </Field>
                 <Field label="現在的需求(會交給 AI 讀)">
                   <textarea id="need" rows={2} value={draft.need} placeholder="例如:要送同事的生日禮物,預算一千內"
                     onChange={(e) => setDraft({ ...draft, need: e.target.value.slice(0, 200) })}

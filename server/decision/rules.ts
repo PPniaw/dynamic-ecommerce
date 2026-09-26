@@ -7,6 +7,7 @@
 // as-is, apply a few persona tweaks, then fill the preset's section rhythm with
 // products chosen by each section's intent.
 import { ARCHETYPE_PRESETS, pickArchetype, scoreArchetypes } from "../../shared/archetypes.ts";
+import { applyVibe, vibeFromPersona } from "../../shared/vibes.ts";
 import type { Product, ShopCategory } from "../../shared/catalog.ts";
 import type { Archetype, Decision, Section } from "../../shared/decision.ts";
 import type { Interest, Persona, Trait } from "../../shared/personas.ts";
@@ -68,10 +69,11 @@ export function decideWithRules(input: DecisionInput, hints: RuleHints = {}): De
     ? prefs.archetype
     : hints.archetype ?? pickArchetype(scoreArchetypes(persona, profile.dealClicks, prefs.budget != null));
   const preset = ARCHETYPE_PRESETS[archetype];
-  const theme: Decision["theme"] = {
+  const theme: Decision["theme"] = applyVibe({
     ...preset.theme,
     scheme: prefs.scheme !== "auto" ? prefs.scheme : traits.has("夜貓子") ? "dark" : preset.theme.scheme,
-  };
+    vibe: prefs.vibe && prefs.vibe !== "auto" ? prefs.vibe : vibeFromPersona(persona),
+  }, prefs.scheme !== "auto" ? prefs.scheme : traits.has("夜貓子") ? "dark" : "auto");
 
   // ---- scoring ---------------------------------------------------------------
   const interestCats = new Set<ShopCategory>();

@@ -27,7 +27,7 @@ TypeSafe 的文件站在這個環境連不到,SDK 的 README 與型別(`node_mod
 
 ## 結構
 
-- `shared/` —— 前後端共用:`infer.ts`(行為 → 猜個性)、`chat.ts`(對話 → 偏好更新、關鍵字讀法、Claude prompt)、`decision.ts`(schema v2)、`archetypes.ts`(四種店型預設 + 個性評分)、
+- `shared/` —— 前後端共用:`vibes.ts`(風格:復古 / Y2K 韓系 / 科幻金屬)、`infer.ts`(行為 → 猜個性)、`chat.ts`(對話 → 偏好更新、關鍵字讀法、Claude prompt)、`decision.ts`(schema v2)、`archetypes.ts`(四種店型預設 + 個性評分)、
   `personas.ts`、`catalog.ts`(24 件、6 類、Unsplash 圖)、`profile.ts`(事件 → 偏好,純函式)
 - `server/` —— Express + ws + `node:sqlite`(`data/shop-v2.db`)、市場模擬、決策排程、
   `decision/rules.ts`(規則引擎)、`decision/typesafe.ts`、`decision/claude.ts`、`decision/index.ts`(sanitize)、`decision/limits.ts`
@@ -57,6 +57,14 @@ TypeSafe 的文件站在這個環境連不到,SDK 的 README 與型別(`node_mod
   **Jev 60% + 規則 40% 加權**(Jev 單獨時對每個人都偏向「重設計」)。≥ 0.75 加入、< 0.35 撤掉。
   猜的記在 `persona.inferred`(面板虛線、標「猜」,並跳提示);顧客點掉的進 `persona.rejected`,不再猜;
   顧客自己說的(面板或聊天)不算猜。內向 / 外向 / 感性 / 理性不從行為猜。預覽頁只用規則。
+- **店型管版型,風格(vibe)管質感**:`theme.vibe` = none / retro / y2k / scifi,可以疊在任何店型上。
+  風格會釘住自己的 palette / fonts / 圓角(`applyVibe`,規則、Jev、sanitize 三處都套),紋理與標題、卡片效果在
+  `tokens.css` 的 `[data-vibe]`。來源:顧客偏好 `prefs.vibe` > Jev(依個性、星座)> 規則(`vibeFromPersona`,要兩個線索才給)。
+  聊天點名(「復古一點」「Y2K 韓系」「科幻感」「簡約」)直接照做。引導聊天第 5 題問風格。
+- **安全(demo 等級)**:`GET /api/users` 只列 4 位示範顧客,訪客 id 不外流(沒有登入,知道 id 就能操作);
+  AI 呼叫有上限(每位顧客每分鐘 `SHOP_AI_PER_SHOPPER_PER_MIN`=30、全站 `SHOP_AI_GLOBAL_PER_MIN`=200),超過改用規則 / 關鍵字;
+  建立訪客每小時上限 120。AI 回話經 `safeReply` 把關:提到金額、折扣、免費、庫存、網址就整段丟掉,改用 `copy.ts` 的文案。
+  價格永遠讀資料庫,結帳用當下價格重算。
 - **Claude 呼叫不用 SDK 的 `betaZodOutputFormat`**:它會把 enum 降成描述文字。用 `z.toJSONSchema`。
 - **顏色只從 5 個種子色推算**,`derive.ts` 會把不及格的角色色推到 WCAG AA。LLM 選 palette 和 surface,不選色碼。
 - **`text-base` 在 Tailwind 是字級,不是顏色**。要用底色當文字色寫 `text-(--bg-base)`。
@@ -82,7 +90,8 @@ PREVIEW_ENTRY=web/store-preview.html PREVIEW_OUT=<dir> npx vite build --config v
 PREVIEW_OUT=<dir> npx vite build --config vite.preview.config.ts                                       # /lab
 ```
 
-再把產出的 css / js 內嵌成單一 HTML(加 Google Fonts `<link>`)發布。
+再把產出的 css / js 內嵌成單一 HTML(加 Google Fonts `<link>`,要包含 Geist、Noto Sans TC、Noto Serif TC、Fraunces、Huninn、
+LXGW WenKai TC、Abril Fatface、Unbounded、Orbitron)發布。
 商店預覽頁宣告了 `sample` capability:聊天用**觀看者自己的 claude.ai 訂閱**呼叫 Claude(不用 API key,第一次會問同意);
 重新發布時不帶 `capabilities` 會沿用,帶了就要包含 `{"sample": {}}`。本機或非 claude.ai 環境 `sample` 不存在,自動改用關鍵字。已發布:
 - 商店:https://claude.ai/artifact/9k4dAKmMaEgZ4DEsrdAqY9
