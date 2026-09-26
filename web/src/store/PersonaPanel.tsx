@@ -27,15 +27,17 @@ export function PersonaDock() {
     <>
       {guessed && (
         <button type="button" onClick={() => setOpen(true)} role="status"
-          className="fixed bottom-[calc(124px+env(safe-area-inset-bottom,0px))] left-4 z-40 max-w-[calc(100vw-2rem)] animate-rise-in cursor-pointer rounded-card bg-base px-3.5 py-2 text-left txt-small shadow-flyout ring-1 ring-line">
+          className="fixed bottom-[calc(72px+env(safe-area-inset-bottom,0px))] left-4 sm:bottom-[calc(124px+env(safe-area-inset-bottom,0px))] z-40 max-w-[calc(100vw-2rem)] animate-rise-in cursor-pointer rounded-card bg-base px-3.5 py-2 text-left txt-small shadow-flyout ring-1 ring-line">
           {INFER_COPY.toast(guessed)}
           <span className="block txt-xsmall text-fg-muted">{INFER_COPY.toastHint}</span>
         </button>
       )}
       <button type="button" onClick={() => setOpen(true)}
-        className="fixed bottom-[calc(16px+env(safe-area-inset-bottom,0px))] left-4 z-40 flex cursor-pointer items-center gap-2.5 rounded-full bg-primary py-1.5 pr-4 pl-1.5 text-on-primary shadow-flyout transition-transform hover:-translate-y-0.5">
+        aria-label={`${user.name} · ${personaLine(user)}`}
+        className="fixed bottom-[calc(16px+env(safe-area-inset-bottom,0px))] left-4 z-40 flex h-11 cursor-pointer items-center gap-2.5 rounded-full bg-primary p-1.5 text-on-primary shadow-flyout transition-transform hover:-translate-y-0.5 sm:pr-4">
         <span className="grid h-8 w-8 place-items-center rounded-full bg-accent txt-small font-bold text-on-accent">{user.name.slice(0, 1)}</span>
-        <span className="text-left leading-tight">
+        {/* Phones: avatar only. */}
+        <span className="hidden text-left leading-tight sm:block">
           <span className="block txt-small font-semibold">{user.name}</span>
           <span className="block text-[11px] opacity-75">{personaLine(user)}</span>
         </span>

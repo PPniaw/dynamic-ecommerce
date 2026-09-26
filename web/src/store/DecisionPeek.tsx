@@ -39,7 +39,7 @@ export function DecisionPeek() {
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
         className="flex cursor-pointer items-center gap-2 rounded-full bg-base px-3.5 py-2 txt-small shadow-flyout ring-1 ring-line">
         <span className={cn("h-2 w-2 rounded-full", !connected ? "bg-danger" : deciding ? "animate-pulse bg-warning" : "bg-success")} />
-        {deciding ? "AI 正在重新安排…" : `${ARCHETYPE_LABEL[d.archetype].name}店 · ${SOURCE_SHORT[envelope.source]}`}
+        {deciding ? "AI 正在重新安排…" : <>{ARCHETYPE_LABEL[d.archetype].name}店<span className="hidden sm:inline"> · {SOURCE_SHORT[envelope.source]}</span></>}
       </button>
     </div>
   );

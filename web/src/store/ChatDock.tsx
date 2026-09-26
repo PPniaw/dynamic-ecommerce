@@ -24,8 +24,9 @@ export function ChatDock() {
     <>
       {!open && (
         <button type="button" onClick={() => setOpen(true)} aria-label={CHAT_UI.open}
-          className="fixed bottom-[calc(72px+env(safe-area-inset-bottom,0px))] left-4 z-40 flex cursor-pointer items-center gap-2 rounded-full bg-accent px-4 py-2.5 txt-small font-semibold text-on-accent shadow-flyout transition-transform hover:-translate-y-0.5">
-          <span aria-hidden>💬</span>{copy.title}
+          className="fixed bottom-[calc(16px+env(safe-area-inset-bottom,0px))] left-[68px] z-40 flex h-11 cursor-pointer items-center gap-2 rounded-full bg-accent px-3 txt-small font-semibold text-on-accent shadow-flyout transition-transform hover:-translate-y-0.5 sm:bottom-[calc(72px+env(safe-area-inset-bottom,0px))] sm:left-4 sm:px-4">
+          {/* Phones: icon only, beside the shopper avatar, so the docks don't cover the page. */}
+          <span aria-hidden>💬</span><span className="hidden sm:inline">{copy.title}</span>
         </button>
       )}
       {/* Keyed by shopper: switching shopper starts a fresh conversation. */}

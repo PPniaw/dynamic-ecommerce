@@ -15,6 +15,9 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Public demo through Tailscale Funnel (`tailscale funnel 5173`): Vite
+    // rejects unknown Host headers, so allow tailnet names.
+    allowedHosts: [".ts.net"],
     proxy: {
       "/api": API,
       "/ws": { target: API.replace("http", "ws"), ws: true },
